@@ -1,0 +1,476 @@
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE MISC
+OBJECT MODULE PLACED IN .\Output\Misc.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\rtd2662\Misc.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND 
+                    -PRINT(.\Output\Misc.lst) OBJECT(.\Output\Misc.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Misc.c No.0002
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __MISC__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          //----------------------------------------------------------------------------------------------------
+  12          // Polling Events
+  13          //----------------------------------------------------------------------------------------------------
+  14          
+  15          
+  16          
+  17          #if(_HSYNC_TYPE_DETECTION == _AUTO_RUN)
+  18          /**
+  19           * CMiscHsyncTypeAutoRunFlagPollingEvent
+  20           * Hsync Type Detection Auto Run flag polling event
+  21           * @param <none>
+  22           * @return {_TRUE if event occurs,_FALSE if not}
+  23           *
+  24          */
+  25          //--------------------------------------------------
+  26          // Description  : Hsync Type Detection Auto Run flag polling event
+  27          // Input Value  : None
+  28          // Output Value : Return _TRUE if event occurs
+  29          //--------------------------------------------------
+  30          bit CMiscHsyncTypeAutoRunFlagPollingEvent(void)
+  31          {
+  32   1          if((bit)CScalerGetBit(_VSYNC_COUNTER_LEVEL_MSB_4C, _BIT7))
+  33   1              return _TRUE;
+  34   1          else
+  35   1              return _FALSE;
+  36   1      }
+  37          #endif  // End of #if(_HSYNC_TYPE_DETECTION == _AUTO_RUN)
+  38          
+  39          /**
+  40           * CMiscModeMeasurePollingEvent
+  41           * Measure start/end polling event
+  42           * @param <none>
+  43           * @return {none}
+  44           *
+  45          */
+  46          //--------------------------------------------------
+  47          // Description  : Measure start/end polling event
+  48          // Input Value  : None
+  49          // Output Value : Return _TRUE if measure finished
+  50          //--------------------------------------------------
+  51          bit CMiscModeMeasurePollingEvent(void)
+  52          {
+  53   1      #if (0)
+                      BYTE count=20;
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 2   
+
+              
+                      do{
+                              if(!(bit)CScalerGetBit(_MEAS_HS_PERIOD_H_52, _BIT5))
+                                      return _TRUE;
+                              CTimerDelayXms(5);
+                              count--;
+                      }while(count!=0);
+                      return _FALSE;
+              #else
+  64   1          if(!(bit)CScalerGetBit(_MEAS_HS_PERIOD_H_52, _BIT5))
+  65   1              return _TRUE;
+  66   1          else
+  67   1              return _FALSE;
+  68   1      #endif
+  69   1      }
+  70          
+  71          bit CMiscMeasureResultPOPPollingEvent(void)
+  72          {
+  73   1          if(!(bit)CScalerGetBit(_MEAS_HS_PERIOD_H_52, _BIT6))
+  74   1              return _TRUE;
+  75   1          else
+  76   1              return _FALSE;
+  77   1      }
+  78          
+  79          
+  80          #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+              //--------------------------------------------------
+              // Description  : Auto measure start/end polling event
+              // Input Value  : None
+              // Output Value : Return _TRUE if auto measure finished
+              //--------------------------------------------------
+              bit CMiscAutoMeasurePollingEvent(void)
+              {
+                  if(!(bit)CScalerGetBit(_AUTO_ADJ_CTRL1_7D, _BIT0))
+                      return _TRUE;
+                  else
+                      return _FALSE;
+              }
+              #endif
+  94          
+  95          //--------------------------------------------------
+  96          // Description  : Apply double buffer polling event
+  97          // Input Value  : None
+  98          // Output Value : Return _TRUE if apply double buffer finished
+  99          //--------------------------------------------------
+ 100          bit CMiscApplyDoubleBufferPollingEvent(void)
+ 101          {
+ 102   1          if(!(bit)CScalerGetBit(_VGIP_CTRL_10, _BIT5))
+ 103   1              return _TRUE;
+ 104   1          else
+ 105   1              return _FALSE;
+ 106   1      }
+ 107          
+ 108          #if(((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON)) && (_DVI_LONG_CABLE_SUPPORT == _ON))
+              //--------------------------------------------------
+              // Description  : TMDS transition measure polling event
+              // Input Value  : None
+              // Output Value : Return _TRUE if measure finished
+              //--------------------------------------------------
+              bit CMiscTMDSMeasureEvent(void)
+              {
+                  CScalerPageSelect(_PAGE2);
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 3   
+
+                  if(!(bit)CScalerGetBit(_P2_TMDS_MEAS_RESULT0_A2, _BIT7))
+                      return _TRUE;
+                  else
+                      return _FALSE;
+              }
+              
+              //--------------------------------------------------
+              // Description  : TMDS CRC measure polling event
+              // Input Value  : None
+              // Output Value : Return _TRUE if CRC measure finished
+              //--------------------------------------------------
+              bit CMiscTMDSCRCEvent(void)
+              {
+                  CScalerPageSelect(_PAGE2);
+                  if(!(bit)CScalerGetBit(_P2_TMDS_CTRL_A4, _BIT0))
+                  {
+                      return _TRUE;
+                  }
+                  else
+                  {
+                      return _FALSE;
+                  }
+              }
+              #endif  // End of #if(((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON)) && (_DVI_LONG_CABLE_SUPPORT == _O
+             -N))
+ 141          
+ 142          
+ 143          //----------------------------------------------------------------------------------------------------
+ 144          // Misc Functions
+ 145          //----------------------------------------------------------------------------------------------------
+ 146          
+ 147          //--------------------------------------------------
+ 148          // Description  : Enable double buffer
+ 149          // Input Value  : None
+ 150          // Output Value : None
+ 151          //--------------------------------------------------
+ 152          void CMiscEnableDoubleBuffer(void)
+ 153          {
+ 154   1          CScalerSetBit(_VGIP_CTRL_10, ~_BIT4, _BIT4);
+ 155   1      }
+ 156          //--------------------------------------------------
+ 157          // Description  : Disable double buffer
+ 158          // Input Value  : None
+ 159          // Output Value : None
+ 160          //--------------------------------------------------
+ 161          void CMiscDisableDoubleBuffer(void)
+ 162          {
+ 163   1          CScalerSetBit(_VGIP_CTRL_10, ~_BIT4, 0x00);
+ 164   1      }
+ 165          
+ 166          //--------------------------------------------------
+ 167          // Description  : Apply double buffer
+ 168          // Input Value  : None
+ 169          // Output Value : None
+ 170          //--------------------------------------------------
+ 171          void CMiscApplyDoubleBuffer(void)
+ 172          {
+ 173   1          BYTE ucTimeout=12;
+ 174   1          if((bit)CScalerGetBit(_VGIP_CTRL_10, _BIT4))
+ 175   1          {
+ 176   2              CScalerSetBit(_VGIP_CTRL_10, ~_BIT5, _BIT5);
+ 177   2              do
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 4   
+
+ 178   2                  {
+ 179   3                      CTimerDelayXms(5);
+ 180   3                      if(CMiscApplyDoubleBufferPollingEvent())
+ 181   3                      {
+ 182   4                          break;
+ 183   4                      }
+ 184   3                  }
+ 185   2                  while(--ucTimeout); 
+ 186   2          }
+ 187   1      }
+ 188          
+ 189          //--------------------------------------------------
+ 190          // Description  : Clear status Reg[02] and Reg[03]
+ 191          // Input Value  : None
+ 192          // Output Value : None
+ 193          //--------------------------------------------------
+ 194          void CMiscClearStatusRegister(void)
+ 195          {
+ 196   1          CScalerSetByte(_STATUS0_02, 0x00);
+ 197   1          CScalerSetByte(_STATUS1_03, 0x00);
+ 198   1      }
+ 199          
+ 200          //--------------------------------------------------
+ 201          // Description  : Set pin share
+ 202          // Input Value  : None
+ 203          // Output Value : None
+ 204          //--------------------------------------------------
+ 205          void CMiscSetPinShare(void)
+ 206          {
+ 207   1              
+ 208   1          //MCU_PIN_SHARE_CTRL00_FF96 = (((BYTE)_PIN_58_59_DDC1_ENABLE<<7) | (_PIN_58<<5) | (_PIN_59<<3) | (_PIN
+             -_50));
+ 209   1          // uart add
+ 210   1          MCU_PIN_SHARE_CTRL00_FF96 = (MCU_PIN_SHARE_CTRL00_FF96 & 0xF8) | (_PIN_50);
+ 211   1          MCU_PIN_SHARE_CTRL01_FF97 = (((BYTE)_PIN_51<<6) | (_PIN_64<<3) | (_PIN_65));
+ 212   1          MCU_PIN_SHARE_CTRL02_FF98 = (((BYTE)_PIN_52<<6) | (_PIN_66<<3) | (_PIN_67));
+ 213   1          MCU_PIN_SHARE_CTRL03_FF99 = (((BYTE)_PIN_53<<6) | (_PIN_69<<3) | (_PIN_70));
+ 214   1          MCU_PIN_SHARE_CTRL04_FF9A = (((BYTE)_PIN_55<<5) | (_PIN_56_57_IIC_ENABLE<<4) | (_PIN_56<<2) | (_PIN_57
+             -));
+ 215   1          MCU_PIN_SHARE_CTRL05_FF9B = (((BYTE)_PIN_68<<4) | (_PIN_71));
+ 216   1          MCU_PIN_SHARE_CTRL06_FF9C = (((BYTE)_PIN_54<<6) | (_PIN_96<<3) | (_PIN_97));
+ 217   1          MCU_PIN_SHARE_CTRL07_FF9D = (((BYTE)_PIN_74to83<<6) | (_PIN_99<<3) | (_PIN_100));
+ 218   1          MCU_PIN_SHARE_CTRL08_FF9E = (((BYTE)_PIN_102<<3) | (_PIN_105));
+ 219   1          MCU_PIN_SHARE_CTRL09_FF9F = (((BYTE)_PIN_98<<6) | (_PIN_101<<3) | (_PIN_108));
+ 220   1          MCU_PIN_SHARE_CTRL0A_FFA0 = (((BYTE)_PIN_103<<4) | (_PIN_104<<1));
+ 221   1          MCU_PIN_SHARE_CTRL0B_FFA1 = (((BYTE)_PIN_109<<4) | (_PIN_110));
+ 222   1          MCU_PIN_SHARE_CTRL0C_FFA2 = (((BYTE)_PIN_111<<4) | (_PIN_112));
+ 223   1          MCU_PIN_SHARE_CTRL0D_FFA3 = (((BYTE)_PIN_113<<4) | (_PIN_114));
+ 224   1          MCU_PIN_SHARE_CTRL0E_FFA4 = (((BYTE)_PIN_124<<6) | (_PIN_123<<4) | (_PIN_122<<2) | (_PIN_121));
+ 225   1      }
+ 226          
+ 227          
+ 228          //----------------------------------------------------------------------------------------------------
+ 229          // Debug Functions
+ 230          //----------------------------------------------------------------------------------------------------
+ 231          
+ 232          //--------------------------------------------------
+ 233          // Description  : ISP process
+ 234          // Input Value  : None
+ 235          // Output Value : None
+ 236          //--------------------------------------------------
+ 237          #if(_DEBUG_TOOL == _ISP_FOR_RTD3580D_EMCU)
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 5   
+
+              void CMiscIspack(void)
+              {
+                  BYTE halt = 0;
+              
+                  do
+                  {
+                      if(bRunCommand)
+                      {
+                          switch(ucDdcciData[0])
+                          {
+              
+                              case 0x80:
+                                  halt = ucDdcciData[1];
+                                  break;
+              
+                              // andy extand 
+                              case 0x10:
+                                   ucVirtualKey = ucDdcciData[1];
+                                   break;                    
+              
+                              case 0x41:
+                                  MCU_I2C_IRQ_CTRL2_FF2A  |= 0x20;
+                                  CScalerRead(ucDdcciData[1], 1, pData, _NON_AUTOINC);
+                                  TxBUF= pData[0];
+                                  MCU_I2C_DATA_OUT_FF26 = pData[0];
+                                  break;
+              
+                              case 0x44:
+                                  MCU_I2C_IRQ_CTRL2_FF2A  |= 0x20;
+                                  CI2cRead(ucDdcciData[2], ucDdcciData[1], 1, pData);
+                                  TxBUF = pData[0];
+                                  MCU_I2C_DATA_OUT_FF26 = TxBUF;
+                                  
+                                  break;
+              
+                              // for RTD & I2c Device
+                              case 0x22:
+                                  ucDdcciData[2] = ucDdcciData[1];
+                                  break;
+              
+                              case 0x28:
+                                  ucDdcciData[3] = ucDdcciData[1];
+                                  break;
+              
+                              case 0x24:
+                                  CI2cWrite(ucDdcciData[2], ucDdcciData[1], 1, &ucDdcciData[3]);
+                                  
+                                  break;
+                                  
+                              case 0x20:
+                                  CScalerSetByte(ucDdcciData[2], ucDdcciData[1]);
+                                  break;
+              
+                              default:
+              
+                                  break;
+                          }
+              
+                          bRunCommand=0;
+                          ucDdcciCommandNumber = 0;
+                      }
+                  }
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 6   
+
+                  while(halt != 0);
+              }
+              
+              //--------------------------------------------------
+              void GetVirtualKey(void)
+              {
+                  if(ucKeyMessage == _NONE_KEY_MESSAGE)
+                  {
+                      ucKeyMessage = ucVirtualKey;
+                  }
+                  ucVirtualKey = _NONE_KEY_MESSAGE;
+              }
+              //--------------------------------------------------
+              
+              // Description  : ISP for RTD3580D Embeded MCU Initial
+              // Input Value  : None
+              // Output Value : None
+              //--------------------------------------------------
+              void CInitIspack(void) 
+              {
+                  MCU_I2C_SET_SLAVE_FF23 = 0x6a;
+                  MCU_I2C_IRQ_CTRL_FF28  = 0x3f;
+                  MCU_IRQ_PRIORITY_FF01  = 0x01;      //assign int1 (IRQ2)
+              
+                  EX1  = 1;
+              }
+              
+              #endif
+ 328          //--------------------------------------------------
+ 329          
+ 330          /**
+ 331           * CMiscIspDebugProc
+ 332           * Debug tool process
+ 333           * @param <none>
+ 334           * @return {none}
+ 335           *
+ 336           */
+ 337          void CMiscIspDebugProc(void)
+ 338          {
+ 339   1          #if(_DEBUG_TOOL == _ISP_FOR_RTD3580D_EMCU)
+                  CMiscIspack();
+                  #endif
+ 342   1      
+ 343   1          #if(_DEBUG_TOOL == _ISP_FOR_DDCCI && _SUPPORTDDCCI)
+ 344   1          CDDCCICommand();
+ 345   1          #endif
+ 346   1      
+ 347   1          #if(_RS232_EN)
+                  CUartHandler();
+                  #endif
+ 350   1      }
+ 351          //--------------------------------------------------
+ 352          void CDDCCIInitial()
+ 353          {
+ 354   1          #if(_DEBUG_TOOL == _ISP_FOR_RTD3580D_EMCU)
+                  CInitIspack();
+                  #endif
+ 357   1      
+ 358   1          #if((_DEBUG_TOOL == _ISP_FOR_DDCCI) && _SUPPORTDDCCI)
+ 359   1          CInitDDCCI();
+ 360   1          #endif
+ 361   1      
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 7   
+
+ 362   1          CInitEdid();
+ 363   1      }
+ 364          //--------------------------------------------------
+ 365          void CInitEdid(void)
+ 366          {
+ 367   1          MCU_HDMI_DDC_ENA_FF2C = 0x00;  //disable HDMI DDC channel
+ 368   1          
+ 369   1      //Gary for Interior HDMI  DDC   20070711
+ 370   1      #if ((_HDMI_EDID==_ON)&&(_HDMI_DDC_CHANNEL_SELECT==_DDC2))
+                            
+                  MCU_DVI_DDC_ENA_FF1E  = 0x01;
+                  MCU_HDMI_DDC_ENA_FF2C = 0x00;//0x01;  //disable HDMI DDC channel
+                  MCU_DDCRAM_PART_FF21  = 0x2b;  //addcram_st=2(0xfd00),dddcram_st=20(0xfd80),hddcram_st=3 
+                  
+              #elif((_HDMI_EDID==_ON)&&(_HDMI_DDC_CHANNEL_SELECT==_DDC3))
+              
+                  MCU_DVI_DDC_ENA_FF1E  = 0x01;  //disable DVI DDC channel
+                  MCU_HDMI_DDC_ENA_FF2C = 0x01;  
+                  MCU_DDCRAM_PART_FF21  = 0x3a;  //addcram_st=3(0xFd80),dddcram_st=2(0xfd80),hddcram_st=2(0xfe00) 
+              
+              #else
+ 383   1          
+ 384   1          MCU_DVI_DDC_ENA_FF1E  = 0x00;  //Disable DVI DDC channel
+ 385   1          MCU_HDMI_DDC_ENA_FF2C = 0x00;  //disable HDMI DDC channel
+ 386   1          MCU_DDCRAM_PART_FF21  = 0x3f;  //addcram_st=3,dddcram_st=3,hddcram_st=3 (Xram=640 Byte) 
+ 387   1      #endif  
+ 388   1      
+ 389   1      #if _VGA_EDID
+ 390   1          MCU_ADC_DDC_ENA_FF1B = 0x01;  
+ 391   1      #else
+                  MCU_ADC_DDC_ENA_FF1B = 0x00;   //Disable ADC DDC channel
+              #endif
+ 394   1      
+ 395   1          CLoadEdid();
+ 396   1      }
+ 397          //--------------------------------------------------
+ 398          void CLoadEdid(void)
+ 399          {
+ 400   1          WORD i;
+ 401   1      
+ 402   1          BYTE xdata *p;
+ 403   1          BYTE code *pEdid;
+ 404   1          
+ 405   1          #if(_HDMI_EDID == _ON) 
+                  p = MCU_DDCRAM_HDMI;
+                  pEdid = &tHDMI_EDID_DATA[0];
+                  for(i=0;i<256;i++)
+                  {
+                      *p++ = *pEdid++;
+                  }
+                  #endif
+ 413   1      
+ 414   1          #if(_DVI_EDID == _ON)
+                  p = MCU_DDCRAM_DVI;
+                  pEdid = &tDVI_EDID_DATA[0];
+                  for(i=0;i<128;i++)
+                  {
+                      *p++ = *pEdid++;
+                  }
+                  
+                  #endif
+ 423   1      
+C51 COMPILER V7.06   MISC                                                                  04/29/2010 18:06:02 PAGE 8   
+
+ 424   1      
+ 425   1          #if(_VGA_EDID == _ON)
+ 426   1          p = MCU_DDCRAM_VGA;
+ 427   1          pEdid = &tVGA_EDID_DATA[0];
+ 428   1          for(i=0;i<128;i++)
+ 429   1          {
+ 430   2              *p++ = *pEdid++;
+ 431   2          }
+ 432   1          #endif  
+ 433   1      }
+ 434          //--------------------------------------------------
+ 435          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    337    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       5
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

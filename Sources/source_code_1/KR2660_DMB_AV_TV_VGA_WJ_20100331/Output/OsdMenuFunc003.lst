@@ -1,0 +1,1268 @@
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE OSDMENUFUNC003
+OBJECT MODULE PLACED IN .\Output\OsdMenuFunc003.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE OSD\OSD003\OsdMenuFunc003.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTE
+                    -ND PRINT(.\Output\OsdMenuFunc003.lst) OBJECT(.\Output\OsdMenuFunc003.obj)
+
+stmt level    source
+
+   1          
+   2          
+   3          #define __OSDDRAW003__
+   4          
+   5          
+   6          #include "Core\Header\Include.h"
+   7          
+   8          BYTE code tOSDMenuFunc;
+   9          void DrawMenuSelect(BYTE Item,BYTE ucState);
+  10          
+  11          #if(_OSD_TYPE == _OSD003)
+  12          //---------------------------------------------------------------------------
+  13          bit CEnable(void)
+  14          {
+  15   1          return 1;
+  16   1      }
+  17          
+  18          //---------------------------------------------------------------------------
+  19          bit CDisable(void)
+  20          {
+  21   1          return 0;
+  22   1      }
+  23          
+  24          //---------------------------------------------------------------------------
+  25          bit CPanelLRUD(void)
+  26          {
+  27   1          return _PANEL_LR_UD_FUNC;
+  28   1      }
+  29          
+  30          //---------------------------------------------------------------------------
+  31          
+  32          
+  33          bit CVideoEnable(void)
+  34          {
+  35   1          if(bSourceVideo() || _SOURCE_YPBPR == _GET_INPUT_SOURCE()||_SOURCE_YPBPR1 == _GET_INPUT_SOURCE())
+  36   1              return 1;
+  37   1          else return 0;
+  38   1      }
+  39                                               
+  40          //---------------------------------------------------------------------------
+  41          bit CVideoNTSCEnable(void)
+  42          {
+  43   1          if((bSourceVideo() && ucVideoType < ZPAL_N) || (_SOURCE_YPBPR == _GET_INPUT_SOURCE())||(_SOURCE_YPBPR1
+             - == _GET_INPUT_SOURCE()))
+  44   1              return 1;
+  45   1          else return 0;
+  46   1      }
+  47          
+  48          //---------------------------------------------------------------------------
+  49          bit CVgaEnable(void)
+  50          {
+  51   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+  52   1              return 1;
+  53   1          else return 0;
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 2   
+
+  54   1      }
+  55          
+  56          //---------------------------------------------------------------------------
+  57          
+  58          bit MDisplayRatioEnable(void)
+  59          {
+  60   1          if(CCalcRatio() >= 75)      // 屏的比例 4:3 或 16:9
+  61   1              return _FAIL;
+  62   1          
+  63   1          return _TRUE;
+  64   1      }
+  65          
+  66          //---------------------------------------------------------------------------
+  67          bit CTVEnable(void)
+  68          {
+  69   1          if(stSystemData.InputSource == _SOURCE_VIDEO_TV)
+  70   1              return 1;
+  71   1          else
+  72   1                      return 0;
+  73   1      }
+  74          //---------------------------------------------------------------------------
+  75          
+  76          void OSDSlider(unsigned char row, unsigned char col, unsigned char length, unsigned char value, unsigned c
+             -har range,
+  77                          unsigned char color)
+  78          {
+  79   1          unsigned int bound;
+  80   1          unsigned char i,c;
+  81   1          OSDLine(row, col, length + 8, color, THE_BYTE2);   // Set Slider Attribute. 4 extra columns for space/
+             -numbers/space
+  82   1          bound   = length * value;
+  83   1          Gotoxy(col,row,THE_BYTE1);
+  84   1          OutputChar(0x2d);
+  85   1          OutputChar(0x21);          // Left Border
+  86   1          for (i = 1; i <= length; i++)
+  87   1          {
+  88   2              if (bound)
+  89   2              {
+  90   3                  if(bound >= range)
+  91   3                  {
+  92   4                      c       = 0x28;
+  93   4                      bound   = bound - range;
+  94   4                  }
+  95   3                  else
+  96   3                  {
+  97   4                      color   = (bound << 4) / range;
+  98   4                      bound   = 0;
+  99   4                      if (4 > color)                    c = 0x23;
+ 100   4                      else if (7 > color)               c = 0x24;
+ 101   4                      else if (10 > color)              c = 0x25;
+ 102   4                      else if (13 > color)              c = 0x26;
+ 103   4                      else                              c = 0x27;
+ 104   4                  }
+ 105   3              }
+ 106   2              else
+ 107   2              {
+ 108   3                  c = 0x22;
+ 109   3              }
+ 110   2              OutputChar(c);
+ 111   2          }
+ 112   1          OutputChar(0x29);    // Right Border
+ 113   1          PrintfDec(value);    //值显示在右边
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 3   
+
+ 114   1          OutputChar(0x2a);
+ 115   1          if (value < 100)
+ 116   1          OutputChar(0x00);
+ 117   1      
+ 118   1      }
+ 119          //---------------------------------------------------------------------------
+ 120          
+ 121          void DrawMainMenu(void)
+ 122          {
+ 123   1          InitOsdFrame();
+ 124   1      
+ 125   1          SetOSDDouble(0);
+ 126   1          CCloseAllWindows();
+ 127   1      
+ 128   1          OSDLine(ROW(0), COL(0),     COL_WIDTH,      0xf0,   BYTE_COLOR);    
+ 129   1          COsdFxDrawWindow(XSTART(0), YSTART(0), _MAINMENU_WITDH, _MAINMENU_HEIGHT, tMainWindowStyle);
+ 130   1      
+ 131   1          OSDPosition(_MAINMENU_WITDH,_MAINMENU_HEIGHT,50,90,0x01);
+ 132   1          
+ 133   1      }
+ 134          //---------------------------------------------------------------------------
+ 135          void DrawContrast(void)
+ 136          {
+ 137   1          OSD_TITLE_OUT(sContrast[GET_LANGUAGE()]);
+ 138   1          OSD_SLIDER(stConBriData.Contrast);
+ 139   1      }
+ 140          //---------------------------------------------------------------------------
+ 141          void DrawBrightness(void)
+ 142          {
+ 143   1          OSD_TITLE_OUT(sBrightness[GET_LANGUAGE()]);
+ 144   1          OSD_SLIDER(stConBriData.Brightness);
+ 145   1      }
+ 146          //---------------------------------------------------------------------------
+ 147          void DrawHue(void)
+ 148          {
+ 149   1          OSD_TITLE_OUT(sHue[GET_LANGUAGE()]);
+ 150   1          OSD_SLIDER(GET_HUE());
+ 151   1      
+ 152   1      }
+ 153          //---------------------------------------------------------------------------
+ 154          void DrawSaturation(void)
+ 155          {
+ 156   1          OSD_TITLE_OUT(sSaturation[GET_LANGUAGE()]);
+ 157   1          OSD_SLIDER(GET_SATURATION());
+ 158   1      
+ 159   1      }
+ 160          //---------------------------------------------------------------------------
+ 161          void DrawSystem(void)
+ 162          {
+ 163   1          OSD_TITLE_OUT(sTvSystem[GET_LANGUAGE()]);
+ 164   1              CCenterTextout((BYTE*)sTVType[ucTVType], 9, 1);
+ 165   1      }
+ 166          //---------------------------------------------------------------------------
+ 167          void DrawAutoSearch(void)
+ 168          {
+ 169   1          OSD_TITLE_OUT(sAutoSearch[GET_LANGUAGE()]);
+ 170   1      
+ 171   1      }
+ 172          //---------------------------------------------------------------------------
+ 173          void DrawManualSearch(void)
+ 174          {
+ 175   1          WORD iFreq = _GET_CH_FREQ();
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 4   
+
+ 176   1          OSD_TITLE_OUT(sManualSearch[GET_LANGUAGE()]);
+ 177   1          Gotoxy(3, 1, BYTE_DISPLAY);
+ 178   1          CShowNumber1(stTvInfo.CurChn, 1);
+ 179   1          CShowFreq(iFreq);
+ 180   1      }
+ 181          //---------------------------------------------------------------------------
+ 182          void DrawTuning(void)
+ 183          {
+ 184   1          WORD iFreq = _GET_CH_FREQ();
+ 185   1          OSD_TITLE_OUT(sTuning[GET_LANGUAGE()]);
+ 186   1          Gotoxy(3, 1, BYTE_DISPLAY);
+ 187   1          CShowNumber1(stTvInfo.CurChn, 1);
+ 188   1          CShowFreq(iFreq);
+ 189   1      }
+ 190          //---------------------------------------------------------------------------
+ 191          void DrawChannel(void)
+ 192          {
+ 193   1          OSD_TITLE_OUT(sChannel[GET_LANGUAGE()]);
+ 194   1              Gotoxy(8, 1, BYTE_DISPLAY);
+ 195   1          CShowNumber1(stTvInfo.CurChn, 1);
+ 196   1      }
+ 197          //---------------------------------------------------------------------------
+ 198          void DrawVolume(void)
+ 199          {
+ 200   1          OSD_TITLE_OUT(sVolume[GET_LANGUAGE()]);
+ 201   1          OSD_SLIDER(GET_VOLUME());
+ 202   1      }
+ 203          //---------------------------------------------------------------------------
+ 204          void DrawLanguage(void)
+ 205          {
+ 206   1          OSD_TITLE_OUT(sLangName[GET_LANGUAGE()]);
+ 207   1      //      CCenterTextout(sLanguage[GET_LANGUAGE()], 14, 2);
+ 208   1      
+ 209   1          Gotoxy(COL(7), ROW(2), BYTE_DISPLAY);
+ 210   1          Textout(sLanguage[0]);
+ 211   1      
+ 212   1          Gotoxy(COL(17), ROW(2), BYTE_DISPLAY);
+ 213   1          Textout(sLanguage[1]);
+ 214   1      
+ 215   1              if(GET_LANGUAGE())
+ 216   1                  Gotoxy(16, 2, BYTE_DISPLAY);
+ 217   1              else
+ 218   1                  Gotoxy(6, 2, BYTE_DISPLAY);
+ 219   1              OutputChar(_SEL_SELECT);
+ 220   1      
+ 221   1      }
+ 222          //------------------------------------------------------------------------------
+ 223          void DrawAtuoAdjustMenu(void)
+ 224          {
+ 225   1      
+ 226   1          OSD_TITLE_OUT(sAutoADJName[GET_LANGUAGE()]);
+ 227   1              CCenterTextout(sYes[GET_LANGUAGE()], 15, 2);
+ 228   1      
+ 229   1                      Gotoxy(13,2,BYTE_DISPLAY);
+ 230   1                      OutputChar(0x3B);
+ 231   1      }
+ 232          
+ 233          void DrawFMMenu(void)
+ 234          {
+ 235   1          BYTE *pStr;
+ 236   1              OSDClear(2, 1, 4 , 20, 0x00, BYTE_DISPLAY);
+ 237   1              OSD_TITLE_OUT(sFm[GET_LANGUAGE()]);
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 5   
+
+ 238   1              switch(_GET_FM_STATE())
+ 239   1              {
+ 240   2                      case _FM_OFF:           pStr = sFM_OFF;                 break;
+ 241   2                      case _FM_A1:                    pStr = sFM_A1;                  break;          
+ 242   2                      case _FM_A2:                    pStr = sFM_A2;                  break;
+ 243   2                      case _FM_A3:                    pStr = sFM_A3;                  break;
+ 244   2                      case _FM_A4:                    pStr = sFM_A4;                  break;          
+ 245   2                      case _FM_A5:                    pStr = sFM_A5;                  break;          
+ 246   2                      case _FM_A6:                    pStr = sFM_A6;                  break;          
+ 247   2                      case _FM_A7:                    pStr = sFM_A7;                  break;          
+ 248   2                      case _FM_A8:                    pStr = sFM_A8;                  break;
+ 249   2                      case _FM_B1:                    pStr = sFM_B1;                  break;
+ 250   2                      case _FM_B2:                    pStr = sFM_B2;                  break;
+ 251   2                      case _FM_B3:                    pStr = sFM_B3;                  break;
+ 252   2                      case _FM_B4:                    pStr = sFM_B4;                  break;
+ 253   2                      case _FM_B5:                    pStr = sFM_B5;                  break;
+ 254   2                      case _FM_B6:                    pStr = sFM_B6;                  break;
+ 255   2                      case _FM_B7:                    pStr = sFM_B7;                  break;
+ 256   2                      case _FM_B8:                    pStr = sFM_B8;                  break;
+ 257   2                      default:
+ 258   2                                                                      pStr = sFM_OFF;                 break;
+ 259   2      
+ 260   2              }
+ 261   1      
+ 262   1              //CCenterTextout(pStr,ROW(2),0,27);
+ 263   1              if(_GET_FM_STATE() == _FM_OFF) //wtao100413
+ 264   1                    CCenterTextout(pStr, 13, 2);
+ 265   1              else
+ 266   1                      CCenterTextout(pStr, 10, 2);
+ 267   1              if(_GET_FM_STATE() != _FM_OFF)
+ 268   1              CCenterTextout(sMhz, 17, 2);
+ 269   1              
+ 270   1                  Gotoxy(20, 2, BYTE_DISPLAY);
+ 271   1                  OutputChar(_SEL_SELECT);
+ 272   1             
+ 273   1      }
+ 274          //---------------------------------------------------------------------------
+ 275          //BYTE ucState : _SEL_CLEAR,_SEL_SELECT
+ 276          void DrawMenuSelect(BYTE Item,BYTE ucState)
+ 277          {
+ 278   1              BYTE x;
+ 279   1      
+ 280   1              if(Item == 0)
+ 281   1              {
+ 282   2                      x = 7;
+ 283   2              }
+ 284   1              else 
+ 285   1              {
+ 286   2                      x = 17;
+ 287   2              }
+ 288   1      
+ 289   1              Gotoxy(x, 2, BYTE_DISPLAY);
+ 290   1              OutputChar(ucState);
+ 291   1              
+ 292   1      }
+ 293          /*/---------------------------------------------------------------------------
+ 294          void MenuSourceSlect(BYTE ucState)
+ 295          {
+ 296                  BYTE ucSelectItem;
+ 297          
+ 298              if(_GET_INPUT_SOURCE() == _SOURCE_VIDEO_AV)
+ 299              {
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 6   
+
+ 300                          ucSelectItem = 0;       
+ 301              }
+ 302              else
+ 303              {
+ 304                          ucSelectItem = 1;
+ 305              }
+ 306          
+ 307              DrawMenuSelect(ucSelectItem,ucState);
+ 308          }
+ 309          *///---------------------------------------------------------------------------
+ 310          void DrawSource(void)
+ 311          {
+ 312   1              
+ 313   1          OSD_TITLE_OUT(sSource);
+ 314   1              //MenuSourceSlect(_SEL_SELECT);
+ 315   1          ucSourceTemp = stSystemData.InputSource;
+ 316   1                  Gotoxy(COL(4), ROW(2), BYTE_DISPLAY);
+ 317   1                      Textout(sAV1);
+ 318   1                  Gotoxy(COL(10), ROW(2), BYTE_DISPLAY);      
+ 319   1                      Textout(sAV2);
+ 320   1                  Gotoxy(COL(16), ROW(2), BYTE_DISPLAY);      
+ 321   1                      Textout(sTV);
+ 322   1                  Gotoxy(COL(22), ROW(2), BYTE_DISPLAY);      
+ 323   1                      Textout(sVGA);  
+ 324   1          if(stSystemData.InputSource == _SOURCE_VIDEO_AV)
+ 325   1              {
+ 326   2                      Gotoxy(3,2,BYTE_DISPLAY);
+ 327   2                      OutputChar(0x3B);
+ 328   2              }
+ 329   1          else if(stSystemData.InputSource == _SOURCE_VIDEO_SV)
+ 330   1          {
+ 331   2                      Gotoxy(9,2,BYTE_DISPLAY);
+ 332   2              OutputChar(0x3B);
+ 333   2          }
+ 334   1              else if(stSystemData.InputSource == _SOURCE_VIDEO_TV)
+ 335   1              {
+ 336   2                      Gotoxy(15,2,BYTE_DISPLAY);
+ 337   2              OutputChar(0x3B);
+ 338   2              }
+ 339   1              else if(stSystemData.InputSource == _SOURCE_VGA)
+ 340   1              {
+ 341   2                      Gotoxy(21,2,BYTE_DISPLAY);
+ 342   2              OutputChar(0x3B);
+ 343   2              }
+ 344   1      }
+ 345          //---------------------------------------------------------------------------
+ 346          void MenuLRSwapSlect(BYTE ucState)
+ 347          {
+ 348   1              BYTE ucSelectItem;
+ 349   1      
+ 350   1          if(GET_LR_SWAP())
+ 351   1          {
+ 352   2                      ucSelectItem = 0;       
+ 353   2          }
+ 354   1          else
+ 355   1          {
+ 356   2                      ucSelectItem = 1;
+ 357   2          }
+ 358   1      
+ 359   1          DrawMenuSelect(ucSelectItem,ucState);
+ 360   1      }
+ 361          //---------------------------------------------------------------------------
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 7   
+
+ 362          
+ 363          void DrawLRSwap(void)
+ 364          {       
+ 365   1          OSD_TITLE_OUT(sLR);
+ 366   1      
+ 367   1          Gotoxy(COL(6), ROW(2), BYTE_DISPLAY);
+ 368   1          OutputChar('L');
+ 369   1      
+ 370   1          Gotoxy(COL(16), ROW(2), BYTE_DISPLAY);
+ 371   1          OutputChar('R');
+ 372   1      
+ 373   1          MenuLRSwapSlect(_SEL_SELECT);
+ 374   1      }
+ 375          //---------------------------------------------------------------------------
+ 376          void MenuUDSwapSlect(BYTE ucState)
+ 377          {
+ 378   1              BYTE ucSelectItem;
+ 379   1      
+ 380   1          if(GET_UD_SWAP())
+ 381   1          {
+ 382   2                      ucSelectItem = 0;       
+ 383   2          }
+ 384   1          else
+ 385   1          {
+ 386   2                      ucSelectItem = 1;
+ 387   2          }
+ 388   1      
+ 389   1          DrawMenuSelect(ucSelectItem,ucState);
+ 390   1      }
+ 391          //---------------------------------------------------------------------------
+ 392          
+ 393          void DrawUDSwap(void)
+ 394          {       
+ 395   1          OSD_TITLE_OUT(sUD);
+ 396   1      
+ 397   1          Gotoxy(COL(6), ROW(2), BYTE_DISPLAY);
+ 398   1          OutputChar('U');
+ 399   1      
+ 400   1          Gotoxy(COL(16), ROW(2), BYTE_DISPLAY);
+ 401   1          OutputChar('D');
+ 402   1      
+ 403   1          MenuUDSwapSlect(_SEL_SELECT);
+ 404   1      }
+ 405          //---------------------------------------------------------------------------
+ 406          void MenuDisaplayRatioSlect(BYTE ucState)
+ 407          {
+ 408   1              BYTE ucSelectItem;
+ 409   1      
+ 410   1          if(GET_DISPLAYMODE() == _DISPMODE_FULL)
+ 411   1          {
+ 412   2                      ucSelectItem = 0;       
+ 413   2          }
+ 414   1          else
+ 415   1          {
+ 416   2                      ucSelectItem = 1;
+ 417   2          }
+ 418   1      
+ 419   1          DrawMenuSelect(ucSelectItem,ucState);
+ 420   1      }
+ 421          //---------------------------------------------------------------------------
+ 422          void DrawDisplayRatio(void)
+ 423          {
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 8   
+
+ 424   1          OSD_TITLE_OUT(sDisplayRatio);
+ 425   1      
+ 426   1          Gotoxy(COL(8), ROW(2), BYTE_DISPLAY);
+ 427   1          Textout(s16_9);
+ 428   1      
+ 429   1          Gotoxy(COL(18), ROW(2), BYTE_DISPLAY);
+ 430   1          Textout(s4_3);
+ 431   1      
+ 432   1          MenuDisaplayRatioSlect(_SEL_SELECT);
+ 433   1      }
+ 434          //---------------------------------------------------------------------------
+ 435          
+ 436          void DrawReset(void)
+ 437          {
+ 438   1          OSD_TITLE_OUT(sReset[GET_LANGUAGE()]);
+ 439   1      
+ 440   1          Gotoxy(COL(8), ROW(2), BYTE_DISPLAY);
+ 441   1          Textout(sNo[GET_LANGUAGE()]);
+ 442   1      
+ 443   1          Gotoxy(COL(18), ROW(2), BYTE_DISPLAY);
+ 444   1          Textout(sYes[GET_LANGUAGE()]);
+ 445   1      
+ 446   1              DrawMenuSelect(0,_SEL_SELECT);
+ 447   1      }
+ 448          //---------------------------------------------------------------------------
+ 449          /*
+ 450          void DrawExit(void)
+ 451          {
+ 452                  OSD_TITLE_OUT(sExit);
+ 453          }
+ 454          */
+ 455          //---------------------------------------------------------------------------
+ 456          
+ 457          void MAdjustContrast(BYTE ucMode)
+ 458          {
+ 459   1          // ucMode : _INC or _DEC
+ 460   1          SET_KEYREPEATENABLE();
+ 461   1          stConBriData.Contrast = ValueInRangeChange(0, 100, stConBriData.Contrast, _NON_LOOP | ucMode);
+ 462   1          CAdjustContrast();
+ 463   1          ucOsdEventMsg = _SAVE_EE_COLORPROC0_MSG;
+ 464   1              OSD_SLIDER(stConBriData.Contrast);      
+ 465   1      }
+ 466          //---------------------------------------------------------------------------
+ 467          void MAdjustBrightness(BYTE ucMode)
+ 468          {
+ 469   1          // ucMode : _INC or _DEC
+ 470   1          SET_KEYREPEATENABLE();
+ 471   1          stConBriData.Brightness = ValueInRangeChange(0, 100, stConBriData.Brightness, _NON_LOOP | ucMode);
+ 472   1          CAdjustBrightness();
+ 473   1          ucOsdEventMsg = _SAVE_EE_COLORPROC0_MSG;
+ 474   1          OSD_SLIDER(stConBriData.Brightness);
+ 475   1      }
+ 476          //---------------------------------------------------------------------------
+ 477          void MAdjustHue(BYTE ucMode)
+ 478          {
+ 479   1          SET_KEYREPEATENABLE();
+ 480   1          stHueSatData.Hue = ValueInRangeChange(0, 100, stHueSatData.Hue, _NON_LOOP | ucMode);
+ 481   1      
+ 482   1          if(bSourceVideo())
+ 483   1          {
+ 484   2              kx_CAdjustVDCHue(GET_HUE());
+ 485   2          }
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 9   
+
+ 486   1          else
+ 487   1          {
+ 488   2              CAdjustYpbprhue(GET_HUE());
+ 489   2          }
+ 490   1          ucOsdEventMsg = _SAVE_EE_HUE_SAT_DATA_MSG;   
+ 491   1      
+ 492   1          OSD_SLIDER(GET_HUE());
+ 493   1      
+ 494   1      }
+ 495          //---------------------------------------------------------------------------
+ 496          void MAdjustSaturation(BYTE ucMode)
+ 497          {
+ 498   1          // ucMode : _INC or _DEC
+ 499   1          SET_KEYREPEATENABLE();
+ 500   1          stHueSatData.Saturation = ValueInRangeChange(0, 100, stHueSatData.Saturation, _NON_LOOP | ucMode);
+ 501   1      
+ 502   1          if(bSourceVideo())
+ 503   1          {
+ 504   2              CVideoSetSaturation(GET_SATURATION());
+ 505   2          }
+ 506   1          else
+ 507   1          {
+ 508   2              CAdjustYpbprSaturation(GET_SATURATION());
+ 509   2          }
+ 510   1      
+ 511   1          ucOsdEventMsg = _SAVE_EE_HUE_SAT_DATA_MSG;
+ 512   1          OSD_SLIDER(GET_SATURATION());
+ 513   1      }
+ 514          
+ 515          //---------------------------------------------------------------------------
+ 516          unsigned char NextTVSystem(unsigned char LR)
+ 517          {
+ 518   1              if(ucTVType == 0)
+ 519   1                      return _NORMAL_TV_TYPE;
+ 520   1              if(LR)
+ 521   1              {
+ 522   2                      switch(ucTVType)
+ 523   2                      {
+ 524   3                              case _TV_PAL_I:                 ucTVType = _TV_PAL_DK;                  break;
+ 525   3                              case _TV_PAL_DK:        ucTVType = _TV_PAL_BG;                  break;
+ 526   3                              case _TV_PAL_BG:        ucTVType = _TV_SECAM_DK;                break;
+ 527   3                              case _TV_SECAM_DK:      ucTVType = _TV_SECAM_BG;                break;
+ 528   3                              case _TV_SECAM_BG:      ucTVType = _TV_NTSC_M;                  break;
+ 529   3                              case _TV_NTSC_M:        ucTVType = _TV_PAL_N;                   break;
+ 530   3                              case _TV_PAL_N:         ucTVType = _TV_PAL_M;                   break;
+ 531   3                              case _TV_PAL_M:         ucTVType = _TV_PAL_I;                   break;
+ 532   3                      }
+ 533   2              }
+ 534   1              else
+ 535   1              {
+ 536   2                      switch(ucTVType)
+ 537   2                      {                               
+ 538   3                              case _TV_PAL_I:                 ucTVType = _TV_PAL_M;                   break;
+ 539   3                              case _TV_PAL_DK:        ucTVType = _TV_PAL_I;                   break;
+ 540   3                              case _TV_PAL_BG:        ucTVType = _TV_PAL_DK;                  break;
+ 541   3                              case _TV_SECAM_DK:      ucTVType = _TV_PAL_BG;                  break;
+ 542   3                              case _TV_SECAM_BG:      ucTVType = _TV_SECAM_DK;                break;
+ 543   3                              case _TV_NTSC_M:        ucTVType = _TV_SECAM_BG;                break;
+ 544   3                              case _TV_PAL_N:         ucTVType = _TV_NTSC_M;                  break;
+ 545   3                              case _TV_PAL_M:         ucTVType = _TV_PAL_N;                   break;
+ 546   3                      }
+ 547   2              }
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 10  
+
+ 548   1              return ucTVType;
+ 549   1      }
+ 550          
+ 551          //---------------------------------------------------------------------------
+ 552          void MAdjustSystem(BYTE LR)
+ 553          {
+ 554   1          ucTVType = NextTVSystem(LR);
+ 555   1          kx_CI2CWriteIfPllDM(ucTVType,_TUNER_MUTE_ON,_NORMAL_MODE);
+ 556   1              OSDClear(1, 1, 1, 20, 0x00, BYTE_DISPLAY);
+ 557   1              DrawSystem();
+ 558   1          CSetTvColor(ucTVType);
+ 559   1      
+ 560   1          _SET_CH_COLOR_TYPE(ucTVType);
+ 561   1          CSaveTVModeData(stTvInfo.CurChn);
+ 562   1          ucTVSyncFailCount = 251;
+ 563   1      
+ 564   1      }
+ 565          //---------------------------------------------------------------------------
+ 566          void MAdjustAutoSearch(BYTE ucMode)
+ 567          {
+ 568   1              ucMode = ucMode;
+ 569   1              CTvAutoSearch();
+ 570   1      }
+ 571          //---------------------------------------------------------------------------
+ 572          void MAdjustManualSearch(BYTE ucMode)
+ 573          {
+ 574   1          CManualSearch(ucMode, stTvInfo.CurChn);
+ 575   1      }
+ 576          //---------------------------------------------------------------------------
+ 577          void MAdjustTuning(BYTE ucMode)
+ 578          {
+ 579   1              WORD iFreq;
+ 580   1          SET_KEYREPEATENABLE();
+ 581   1              CTuningCurrentChannel(ucMode, stTvInfo.CurChn);
+ 582   1              iFreq = _GET_CH_FREQ();
+ 583   1          CShowFreq(iFreq);
+ 584   1      }
+ 585          //---------------------------------------------------------------------------
+ 586          void MAdjustChannel(BYTE ucMode)
+ 587          {
+ 588   1          stTvInfo.CurChn = ValueInRangeChange(0, stTvInfo.ucMaxChannel, stTvInfo.CurChn, _LOOP | ucMode);
+ 589   1          CSetTVChannel(stTvInfo.CurChn);
+ 590   1          ucPrevChannel =  stTvInfo.CurChn;
+ 591   1          Gotoxy(8, 1, BYTE_DISPLAY);
+ 592   1          CShowNumber1(stTvInfo.CurChn, 1);
+ 593   1          CMuteOn();
+ 594   1          CModeResetTVMode();
+ 595   1      
+ 596   1          ucOsdEventMsg  = _SAVE_EE_TV_DATA_MSG;
+ 597   1      }
+ 598          //---------------------------------------------------------------------------
+ 599          
+ 600          //---------------------------------------------------------------------------
+ 601          void MAdjustVolume(BYTE ucMode)
+ 602          {
+ 603   1          SET_KEYREPEATENABLE();
+ 604   1          stAudioData.Volume = ValueInRangeChange(0, 100, stAudioData.Volume, _NON_LOOP | ucMode);
+ 605   1          CLR_AUDIO_MUTE();
+ 606   1          CAdjustAudio();
+ 607   1          CSetVolume();
+ 608   1      
+ 609   1          ucOsdEventMsg = _SAVE_EE_AUDIO_DATA_MSG;
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 11  
+
+ 610   1          OSD_SLIDER(GET_VOLUME());
+ 611   1      }
+ 612          //---------------------------------------------------------------------------
+ 613          void AutoAdjustLeftRight(BYTE LR)
+ 614          {
+ 615   1           LR = LR;
+ 616   1                                      if(stSystemData.InputSource == _SOURCE_VGA)
+ 617   1                              {
+ 618   2                                      CAutoDoAutoConfig();
+ 619   2                                      CAutoDoWhiteBalance();
+ 620   2                              }
+ 621   1      }
+ 622          ///////--------------------------------------------------
+ 623          void MAdjustLanguage(BYTE ucMode)
+ 624          {
+ 625   1          BYTE ucLang = GET_LANGUAGE();
+ 626   1      
+ 627   1          OSDClear(0,2,0,20,0x00,BYTE_DISPLAY);
+ 628   1              
+ 629   1          if (!ucMode) //中文-> English
+ 630   1              {
+ 631   2                ucLang = 0;//GetNextLanguage(ucLang);
+ 632   2                  Gotoxy(16, 2, BYTE_DISPLAY);
+ 633   2                  OutputChar(_SEL_CLEAR);
+ 634   2                  Gotoxy(6, 2, BYTE_DISPLAY);
+ 635   2                  OutputChar(_SEL_SELECT);
+ 636   2                 SET_LANGUAGE(0);
+ 637   2                 CCenterTextout(sLangName[0],  COL(14), ROW(0));//9, 0);//wtao100413
+ 638   2              }
+ 639   1          else   //English ->中文
+ 640   1              {
+ 641   2                ucLang = 1;//GetPrevLanguage(ucLang);
+ 642   2                  Gotoxy(6, 2, BYTE_DISPLAY);
+ 643   2                  OutputChar(_SEL_CLEAR);
+ 644   2                  Gotoxy(16, 2, BYTE_DISPLAY);
+ 645   2                  OutputChar(_SEL_SELECT);
+ 646   2                 SET_LANGUAGE(1);
+ 647   2                 CCenterTextout(sLangName[1],  COL(14), ROW(0));//9, 0);//wtao100413
+ 648   2              }
+ 649   1              
+ 650   1          
+ 651   1              //OSDClear(0, 2, 1, 30, 0x00, BYTE_DISPLAY);
+ 652   1              //OSD_CLEAR_MENU();
+ 653   1      
+ 654   1          //
+ 655   1         // CCenterTextout(sLanguage[GET_LANGUAGE()], 14, 2);
+ 656   1                      
+ 657   1          ucOsdEventMsg = _SAVE_EE_OSDUSERDATA_MSG;
+ 658   1      
+ 659   1      }
+ 660          //---------------------------------------------------------------------------
+ 661          //---------------------------------------------------------------------------
+ 662          void MAdjustSource(BYTE ucMode)
+ 663          {
+ 664   1          if(ucSourceTemp == _SOURCE_VIDEO_AV)
+ 665   1              {
+ 666   2              OSDClear(2, 1, 3 , 1, 0x00, BYTE_DISPLAY);
+ 667   2              }
+ 668   1                  else if(ucSourceTemp == _SOURCE_VIDEO_SV)
+ 669   1          {
+ 670   2              OSDClear(2, 1, 9 , 1, 0x00, BYTE_DISPLAY);
+ 671   2          }
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 12  
+
+ 672   1              else if(ucSourceTemp == _SOURCE_VIDEO_TV)
+ 673   1              {
+ 674   2              OSDClear(2, 1, 15 , 1, 0x00, BYTE_DISPLAY);
+ 675   2              }
+ 676   1              else if(ucSourceTemp == _SOURCE_VGA)
+ 677   1              {
+ 678   2              OSDClear(2, 1, 21 , 1, 0x00, BYTE_DISPLAY);
+ 679   2              }
+ 680   1              
+ 681   1          if (ucMode)
+ 682   1          {
+ 683   2              if(ucSourceTemp == _SOURCE_VIDEO_AV)
+ 684   2                              ucSourceTemp = _SOURCE_VIDEO_SV;                                        
+ 685   2              else if(ucSourceTemp == _SOURCE_VIDEO_SV)                       
+ 686   2                      ucSourceTemp = _SOURCE_VIDEO_TV;
+ 687   2          else if(ucSourceTemp == _SOURCE_VIDEO_TV)
+ 688   2                      ucSourceTemp = _SOURCE_VGA;     
+ 689   2              else if(ucSourceTemp == _SOURCE_VGA)
+ 690   2                      ucSourceTemp = _SOURCE_VIDEO_AV;
+ 691   2              else
+ 692   2                      return;
+ 693   2          }
+ 694   1          else
+ 695   1          {
+ 696   2              if(ucSourceTemp == _SOURCE_VIDEO_AV)
+ 697   2                              ucSourceTemp = _SOURCE_VGA;  
+ 698   2              else if(ucSourceTemp == _SOURCE_VGA)    
+ 699   2                      ucSourceTemp = _SOURCE_VIDEO_TV;
+ 700   2          else if(ucSourceTemp == _SOURCE_VIDEO_TV)           
+ 701   2                              ucSourceTemp = _SOURCE_VIDEO_SV;   
+ 702   2              else if(ucSourceTemp == _SOURCE_VIDEO_SV)               
+ 703   2                      ucSourceTemp = _SOURCE_VIDEO_AV;
+ 704   2              else
+ 705   2                      return;
+ 706   2          }
+ 707   1      
+ 708   1          if(ucSourceTemp == _SOURCE_VIDEO_AV)
+ 709   1              {
+ 710   2                      Gotoxy(3,2,BYTE_DISPLAY);
+ 711   2                      OutputChar(0x3B);
+ 712   2              }
+ 713   1              else if(ucSourceTemp == _SOURCE_VIDEO_SV)  //mp5 cvbs
+ 714   1          {
+ 715   2                      Gotoxy(9,2,BYTE_DISPLAY);
+ 716   2              OutputChar(0x3B);
+ 717   2          }
+ 718   1              else if(ucSourceTemp == _SOURCE_VIDEO_TV)
+ 719   1              {
+ 720   2                      Gotoxy(15,2,BYTE_DISPLAY);
+ 721   2              OutputChar(0x3B);
+ 722   2              }
+ 723   1              else if(ucSourceTemp == _SOURCE_VGA)
+ 724   1              {
+ 725   2                      Gotoxy(21,2,BYTE_DISPLAY);
+ 726   2              OutputChar(0x3B);
+ 727   2              }
+ 728   1      }
+ 729          //---------------------------------------------------------------------------
+ 730          void MAdjustFM(BYTE LR)
+ 731          {
+ 732   1              BYTE item ;
+ 733   1              item = _GET_FM_STATE();
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 13  
+
+ 734   1              item = ValueInRangeChange(_FM_OFF,_FM_B8,item,_LOOP | LR);//SHANG//FM OFF//NON
+ 735   1              //item = ValueInRangeChange(_FM_OFF,_FM_B8,item,_NON_LOOP | LR);
+ 736   1              _SET_FM_STATE(item);
+ 737   1              CFMControl();
+ 738   1              DrawFMMenu();
+ 739   1      }
+ 740          
+ 741          //------------------------------------------------------------------------------
+ 742          
+ 743          void MAdjustLRSwap(BYTE ucMode)
+ 744          {
+ 745   1              ucMode = ucMode;
+ 746   1      
+ 747   1              MenuLRSwapSlect(_SEL_CLEAR);
+ 748   1      
+ 749   1              PanelLRSwap();
+ 750   1              
+ 751   1              MenuLRSwapSlect(_SEL_SELECT);
+ 752   1      }
+ 753          //---------------------------------------------------------------------------
+ 754          
+ 755          
+ 756          void MAdjustUDSwap(BYTE ucMode)
+ 757          {
+ 758   1              ucMode = ucMode;
+ 759   1              MenuUDSwapSlect(_SEL_CLEAR);
+ 760   1              PanelUDSwap();
+ 761   1              MenuUDSwapSlect(_SEL_SELECT);
+ 762   1      }
+ 763          //---------------------------------------------------------------------------
+ 764          void MAdjustDisplayRatio(BYTE ucMode)
+ 765          {
+ 766   1              ucMode = ucMode;
+ 767   1              MenuDisaplayRatioSlect(_SEL_CLEAR);
+ 768   1              
+ 769   1              ChangeDisplayMode();    
+ 770   1      }
+ 771          //---------------------------------------------------------------------------
+ 772          void MAdjustReset(BYTE ucMode)
+ 773          {
+ 774   1              ucMode = ucMode;
+ 775   1              
+ 776   1              DrawMenuSelect(m_fResetMenuState,_SEL_CLEAR);
+ 777   1      
+ 778   1              m_fResetMenuState = ~m_fResetMenuState;
+ 779   1              
+ 780   1              DrawMenuSelect(m_fResetMenuState,_SEL_SELECT);
+ 781   1      
+ 782   1      }
+ 783          //---------------------------------------------------------------------------
+ 784          
+ 785          void MReset(void)
+ 786          {
+ 787   1              OSDLine(ROW(2), COL(0), COL_WIDTH, 0x00, BYTE_DISPLAY);
+ 788   1              CCenterTextout(sReseting, COL(14), ROW(2));
+ 789   1              CDoReset();
+ 790   1          CLR_KEYREPEATENABLE();
+ 791   1          COsdFxDisableOsd();
+ 792   1          ucOsdState = _MI_MENU_NONE;
+ 793   1      }
+ 794          //---------------------------------------------------------------------------
+ 795          
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 14  
+
+ 796          
+ 797          
+ 798          
+ 799          
+ 800          // Func
+ 801          //---------------------------------------------------------------------------
+ 802          void MMenuNoneProc(void)
+ 803          {
+ 804   1          switch(ucOsdEventMsg)
+ 805   1          {
+ 806   2          case _OE_ENTER_SUBMENU:     
+ 807   2                      MMenuNoneEnterSubMenu();        
+ 808   2                      ucSourceTemp = stSystemData.InputSource;
+ 809   2                      break;
+ 810   2          
+ 811   2          case _OE_SC_CH_INC:
+ 812   2          case _OE_SC_CH_DEC:
+ 813   2              if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_TV)
+ 814   2                  return;
+ 815   2              CChangeChannel((ucOsdEventMsg == _OE_SC_CH_DEC) ? 0 : 1);
+ 816   2              COsdDispOsdTimerEvent();
+ 817   2              bDrawMute = 0;
+ 818   2              break;
+ 819   2      
+ 820   2      #if(_VGA_SUPPORT)
+ 821   2          case _OE_INPUT_VGA:
+ 822   2              if (_GET_INPUT_SOURCE() != _SOURCE_VGA)
+ 823   2              {
+ 824   3                  _SET_INPUT_SOURCE(_SOURCE_VGA);
+ 825   3                  ChangeSourceReset();
+ 826   3              } 
+ 827   2              break;
+ 828   2      #endif
+ 829   2      
+ 830   2      #if(_TMDS_SUPPORT)
+                  case _OE_INPUT_DVI:
+                      if (_GET_INPUT_SOURCE() != _SOURCE_DVI)
+                      {
+                          _SET_INPUT_SOURCE(_SOURCE_DVI);
+                          ChangeSourceReset();
+                      } 
+                      break;
+              #endif
+ 839   2      
+ 840   2      #if(_VIDEO_SV_SUPPORT)
+ 841   2          case _OE_INPUT_S_VIDEO:
+ 842   2              if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_SV)
+ 843   2              {
+ 844   3                  _SET_INPUT_SOURCE(_SOURCE_VIDEO_SV);
+ 845   3                  ChangeSourceReset();
+ 846   3              } 
+ 847   2              break;
+ 848   2      #endif
+ 849   2      
+ 850   2      #if(_VIDEO_AV_SUPPORT)
+ 851   2          case _OE_INPUT_AV:
+ 852   2              if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_AV)
+ 853   2              {
+ 854   3                  _SET_INPUT_SOURCE(_SOURCE_VIDEO_AV);
+ 855   3                  ChangeSourceReset();
+ 856   3              } 
+ 857   2              break;
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 15  
+
+ 858   2      #endif
+ 859   2      
+ 860   2      #if(_VIDEO_TV_SUPPORT)
+ 861   2          case _OE_INPUT_TV:
+ 862   2              if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_TV)
+ 863   2              {
+ 864   3                  _SET_INPUT_SOURCE(_SOURCE_VIDEO_TV);
+ 865   3                  ChangeSourceReset();
+ 866   3              } 
+ 867   2              break;
+ 868   2      #endif
+ 869   2      
+ 870   2      #if(_YPBPR_SUPPORT)
+                  case _OE_INPUT_YPBPR:
+                      if (_GET_INPUT_SOURCE() != _SOURCE_YPBPR)
+                      {
+                          _SET_INPUT_SOURCE(_SOURCE_YPBPR);
+                          ChangeSourceReset();
+                      } 
+                      break;
+                  case _OE_INPUT_YPBPR1:
+                      if (_GET_INPUT_SOURCE() != _SOURCE_YPBPR1)
+                      {
+                          _SET_INPUT_SOURCE(_SOURCE_YPBPR1);
+                          ChangeSourceReset();
+                      } 
+                      break;
+              
+              
+              #endif
+ 888   2              case _OE_CHG_DISPLAY_MODE:                              ChangeDisplayMode();                    break;
+ 889   2              case _OE_PANEL_LR_SWAP:                                 PanelLRSwap();                                  break;
+ 890   2              case _OE_PANEL_UD_SWAP:                         PanelUDSwap();                                  break;
+ 891   2              case _OE_GOTO_MENU_CONTRAST:                    GotoContrastMenu();                             break;
+ 892   2              case _OE_GOTO_MENU_SATURATION:          GotoSaturationMenu();                   break;
+ 893   2              case _OE_GOTO_MENU_BRIGHTNESS:          GotoBrightnessMenu();                   break;
+ 894   2              case _OE_SC_TIMER_CHANGE:                               SetSleepTimer();                                       break;
+ 895   2             
+ 896   2      
+ 897   2             case _OE_SC_INPUT_NUM0:
+ 898   2             case _OE_SC_INPUT_NUM1:
+ 899   2             case _OE_SC_INPUT_NUM2:
+ 900   2             case _OE_SC_INPUT_NUM3:
+ 901   2             case _OE_SC_INPUT_NUM4:
+ 902   2             case _OE_SC_INPUT_NUM5:
+ 903   2             case _OE_SC_INPUT_NUM6:
+ 904   2             case _OE_SC_INPUT_NUM7:
+ 905   2             case _OE_SC_INPUT_NUM8:
+ 906   2             case _OE_SC_INPUT_NUM9:
+ 907   2             case _OE_SC_INPUT_CHANGE_CH:
+ 908   2                                                                                   EnterSCInputNum();
+ 909   2                                                                                   MScInputChNumProc();
+ 910   2              break;
+ 911   2              
+ 912   2             case _OE_SC_INPUT_CH:                                   EnterSCInputNum();              break;
+ 913   2             
+ 914   2             case _OE_SC_RETURN:
+ 915   2              COsdDispOsdTimerEvent();
+ 916   2                     pData[0]        = stTvInfo.CurChn;
+ 917   2                    stTvInfo.CurChn = ucPrevChannel;
+ 918   2                    ucPrevChannel   = pData[0];
+ 919   2              
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 16  
+
+ 920   2                    CMuteOn();
+ 921   2                    CModeResetTVMode();
+ 922   2                    CTimerDelayXms(200);
+ 923   2                    CSetTVChannel(stTvInfo.CurChn);
+ 924   2                    ucOsdEventMsg = _SAVE_EE_TV_DATA_MSG;
+ 925   2              break;
+ 926   2      
+ 927   2            case _OE_SC_AUTO_SEARCH:
+ 928   2              DrawMainMenu();
+ 929   2              DrawAutoSearch();
+ 930   2              COsdFxEnableOsd();          
+ 931   2                     CTvAutoSearch();
+ 932   2              break;
+ 933   2                      
+ 934   2              case _OE_SC_MUTE:          
+ 935   2                      CSetMuteState();                
+ 936   2              break;
+ 937   2              
+ 938   2              default: break; 
+ 939   2          }
+ 940   1      }
+ 941          //---------------------------------------------------------------------------
+ 942          #define _TEST_ADCKEY                            0            
+ 943          
+ 944          void MMenuNoneEnterSubMenu(void)
+ 945          {
+ 946   1          // Draw osd
+ 947   1          // Insert code to here
+ 948   1              DrawMainMenu();    
+ 949   1              DrawContrast();
+ 950   1              
+ 951   1          ucOsdState = _MI_CONTRAST;
+ 952   1          
+ 953   1          COsdFxEnableOsd();
+ 954   1      
+ 955   1          #if(_TEST_ADCKEY)
+                      {
+                              BYTE ucValue;
+                              while(1)
+                              {
+                                      ucValue = CGetADCAValue(AD_KEY);
+                                      Gotoxy(1,1,BYTE_DISPLAY);
+                                      PrintfDec(ucValue);
+                          }
+                  }
+                  #endif
+ 966   1      
+ 967   1      }
+ 968          
+ 969          //---------------------------------------------------------------------------
+ 970          //---------------------------------------------------------------------------
+ 971          // MainMenu\CONTRAST,BRIGHTNESS,HUE,SATURATION,SOURCE,LR_SWAP,UD_SWAP,DISPLAY_RATIO,RESET,EXIT,
+ 972          // MainMenu\_MI_CONTRAST,_MI_BRIGHTNESS,_MI_HUE,_MI_SATURATION,_MI_SOURCE,_MI_LR_SWAP,_MI_UD_SWAP,_MI_DISP
+             -LAY_RATIO,_MI_RESET,_MI_EXIT,
+ 973          void MMainMenuProc(void)
+ 974          {
+ 975   1          switch(ucOsdEventMsg)
+ 976   1          {
+ 977   2              case _OE_ADJ_INC:           
+ 978   2                              MMainMenuValueAdj(_INC);            
+ 979   2                              break;
+ 980   2              case _OE_ADJ_DEC:           
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 17  
+
+ 981   2                              MMainMenuValueAdj(_DEC);            
+ 982   2                              break;
+ 983   2              case _OE_MENU_NEXT:         
+ 984   2                             if (ucOsdState == _MI_SOURCE)
+ 985   2                               {
+ 986   3                                   if (ucSourceTemp != stSystemData.InputSource)
+ 987   3                                   {
+ 988   4                                       stSystemData.InputSource = ucSourceTemp;
+ 989   4                                   
+ 990   4                                      COsdDispOsdTimerEvent();              
+ 991   4                                       ucOsdEventMsg = _CHANGE_SOURCE_MSG;
+ 992   4                                       COsdFxDisableOsd();
+ 993   4                                       return;
+ 994   4                                   }
+ 995   3                               }
+ 996   2                             MMainMenuMenuAdj(_NEXT);           
+ 997   2                             break;
+ 998   2              case _OE_MENU_PREV:         
+ 999   2                              MMainMenuMenuAdj(_PREV);           
+1000   2                              break;
+1001   2              case _OE_ENTER_SUBMENU:     
+1002   2                              //MMainMenuEnterSubMenu();            //no process
+1003   2                              break;
+1004   2              case _OE_RETURN_UPMENU:     
+1005   2                              MMainMenuReturnUpMenu();            
+1006   2                              break;
+1007   2              default: break;         
+1008   2          }
+1009   1      }
+1010          //---------------------------------------------------------------------------
+1011          void MMainMenuValueAdj(BYTE ucMode)
+1012          {
+1013   1          // ucMode : _INC or _DEC
+1014   1      
+1015   1          switch(ucOsdState)
+1016   1          {
+1017   2              case _MI_CONTRAST:             MAdjustContrast(ucMode);             break;
+1018   2              case _MI_BRIGHTNESS:          MAdjustBrightness(ucMode);         break;
+1019   2              case _MI_HUE:                       MAdjustHue(ucMode);                    break;
+1020   2              case _MI_SATURATION:          MAdjustSaturation(ucMode);         break;
+1021   2              case _MI_SYSTEM:                  MAdjustSystem(ucMode);                    break;
+1022   2              case _MI_AUTOSEARCH:         MAdjustAutoSearch(ucMode);        break;        
+1023   2              case _MI_MANUALSEARCH:     MAdjustManualSearch(ucMode);    break;
+1024   2              case _MI_TUNING:                  MAdjustTuning(ucMode);               break;
+1025   2              case _MI_CHANNEL:                MAdjustChannel(ucMode);             break;
+1026   2              case _MI_VOLUME:                  MAdjustVolume(ucMode);             break;
+1027   2              case _MI_ATUOADJ:                AutoAdjustLeftRight(ucMode);      break;
+1028   2              case _MI_LANGUAGE:              MAdjustLanguage(ucMode);         break;        
+1029   2              case _MI_SOURCE:                 MAdjustSource(ucMode);              break;
+1030   2               case _MI_FM_SEND:                  MAdjustFM(ucMode);                     break;
+1031   2              case _MI_LR_SWAP:                MAdjustLRSwap(ucMode);            break;
+1032   2              case _MI_UD_SWAP:               MAdjustUDSwap(ucMode);            break;
+1033   2              case _MI_DISPLAY_RATIO:      MAdjustDisplayRatio(ucMode);     break;
+1034   2              case _MI_RESET:                    MAdjustReset(ucMode);                break;
+1035   2              default: break;         
+1036   2          }   
+1037   1      }
+1038          //---------------------------------------------------------------------------
+1039          void MMainMenuMenuAdj(BYTE ucMode)
+1040          {
+1041   1          // ucMode : _NEXT or _Prev
+1042   1          BYTE ucNewItem = AdjustMenuItem(_MI_CONTRAST,_MI_EXIT,ucMode);
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 18  
+
+1043   1          if(ucNewItem == ucOsdState)
+1044   1              return;
+1045   1      
+1046   1              if(ucOsdState == _MI_RESET)
+1047   1              {        
+1048   2                      if(m_fResetMenuState == 1)
+1049   2                      {
+1050   3                              MReset();
+1051   3                      }
+1052   2              }
+1053   1          // 1. Clear Current Menu
+1054   1          // Insert code to here
+1055   1              OSD_CLEAR_MENU();
+1056   1      
+1057   1              
+1058   1          // 2. Change ucOsdState
+1059   1          ucOsdState = ucNewItem;
+1060   1      
+1061   1          // 3. Draw New Item
+1062   1          // Insert code to here
+1063   1          switch(ucOsdState)
+1064   1          {
+1065   2              case _MI_CONTRAST:              DrawContrast();                         break;
+1066   2              case _MI_BRIGHTNESS:            DrawBrightness();                       break;
+1067   2              case _MI_HUE:                         DrawHue();                                break;
+1068   2              case _MI_SATURATION:            DrawSaturation();                       break;
+1069   2              case _MI_FM_SEND:                     DrawFMMenu();                     break;        
+1070   2              case _MI_SYSTEM:                        DrawSystem();                         break;
+1071   2              case _MI_AUTOSEARCH:            DrawAutoSearch();              break;        
+1072   2              case _MI_MANUALSEARCH:          DrawManualSearch();            break;
+1073   2              case _MI_TUNING:                       DrawTuning();                       break;
+1074   2              case _MI_CHANNEL:                    DrawChannel();                      break;
+1075   2              case _MI_VOLUME:                      DrawVolume();                     break;
+1076   2              case _MI_ATUOADJ:                    DrawAtuoAdjustMenu();        break;
+1077   2              case _MI_LANGUAGE:                 DrawLanguage();                      break;        
+1078   2              case _MI_SOURCE:                     DrawSource();                              break;
+1079   2              case _MI_LR_SWAP:                   DrawLRSwap();                       break;
+1080   2              case _MI_UD_SWAP:                  DrawUDSwap();                        break;
+1081   2              case _MI_DISPLAY_RATIO:         DrawDisplayRatio();                break;
+1082   2              case _MI_RESET:                 
+1083   2                      m_fResetMenuState = 0;
+1084   2                      DrawReset();
+1085   2                      break;
+1086   2              case _MI_EXIT:                  //DrawExit();                           break;
+1087   2                      ucOsdState = _MI_MENU_NONE;
+1088   2                      COsdTimeOut();
+1089   2                      break;
+1090   2              default: break;         
+1091   2          }
+1092   1      
+1093   1      
+1094   1      }
+1095          
+1096          //---------------------------------------------------------------------------
+1097          void MMainMenuEnterSubMenu(void)
+1098          {
+1099   1          // 1. Before Enter SubMenu
+1100   1          // Insert code to here ...
+1101   1      
+1102   1      
+1103   1          // 2. Change ucOsdState
+1104   1          
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 19  
+
+1105   1          switch(ucOsdState)
+1106   1          {
+1107   2              case _MI_CONTRAST:                                        break;
+1108   2              case _MI_BRIGHTNESS:                                     break;
+1109   2              case _MI_HUE:                                                   break;
+1110   2              case _MI_SATURATION:                                     break;
+1111   2              case _MI_SYSTEM:                                                  break;
+1112   2              case _MI_AUTOSEARCH:                                        break;        
+1113   2              case _MI_MANUALSEARCH:                                 break;
+1114   2              case _MI_TUNING:                                             break;
+1115   2              case _MI_CHANNEL:                                           break;
+1116   2              case _MI_VOLUME:                                             break;
+1117   2              case _MI_LANGUAGE:                                          break;  
+1118   2              case _MI_SOURCE:                                            break;
+1119   2              case _MI_LR_SWAP:                                           break;
+1120   2              case _MI_UD_SWAP:                                          break;
+1121   2              case _MI_DISPLAY_RATIO:                                 break;
+1122   2              case _MI_RESET:                                                     break;
+1123   2              case _MI_EXIT:                                                  break;
+1124   2               default:break; 
+1125   2          }
+1126   1      
+1127   1          // 3. Now enter sub menu
+1128   1          // Insert code to here ...
+1129   1      
+1130   1      
+1131   1      }
+1132          //---------------------------------------------------------------------------
+1133          void MMainMenuReturnUpMenu(void)
+1134          {
+1135   1          // 1. Before Return UpMenu
+1136   1          // Insert code to here ...
+1137   1      
+1138   1          // 2. Change ucOsdState
+1139   1          ucOsdState = _MI_MENU_NONE;
+1140   1          COsdFxDisableOsd();
+1141   1      
+1142   1          // 3. Now Return to upmenu
+1143   1          // Insert code to here ...
+1144   1      }
+1145          //---------------------------------------------------------------------------
+1146          void CShowAutoSerachTotal(BYTE ucSearchTotal)
+1147          {
+1148   1              ucSearchTotal = ucSearchTotal;
+1149   1              Gotoxy(3, 1, BYTE_DISPLAY);
+1150   1          CShowNumber1(ucSearchTotal, 1);    
+1151   1      }
+1152          //---------------------------------------------------------------------------
+1153          void CShowFreq(WORD iFreqN)
+1154          {
+1155   1          DWORD lFreqTemp = 0;
+1156   1      
+1157   1          // Get PIF freq
+1158   1          lFreqTemp = (((float)iFreqN/_TUNER_BP) - ((float)_PIF_FREQ/1000))*100;
+1159   1      
+1160   1          Gotoxy(8, 1, BYTE_DISPLAY); 
+1161   1          iFreqN = lFreqTemp/100;  // MHz  
+1162   1          CShowNumber1(iFreqN, 0);
+1163   1          OutputChar(0x2E); // "."
+1164   1      
+1165   1          iFreqN = lFreqTemp%100;  // KHz
+1166   1          CShowNumber1(iFreqN, 2);
+C51 COMPILER V7.06   OSDMENUFUNC003                                                        04/29/2010 18:06:07 PAGE 20  
+
+1167   1      
+1168   1          OutputChar('M');
+1169   1          OutputChar('H');
+1170   1          OutputChar('Z');
+1171   1          OutputChar(0x00); // " "
+1172   1      }
+1173          
+1174          //---------------------------------------------------------------------------
+1175          void CShowAutoSearchSliderInOSD(WORD ucCurrentValue)
+1176          {
+1177   1          CShowFreq(ucCurrentValue);
+1178   1      }
+1179          //-----------------------------------------------------------------------
+1180          bit CKeyStopAutoSearch(void)
+1181          {
+1182   1          BYTE ucIRKey = CIRKeyScan();
+1183   1      
+1184   1              if(_POWER_KEY_MESSAGE == ucIRKey)
+1185   1              {
+1186   2      //              bPowerState = 1;
+1187   2                      return 1;
+1188   2              }
+1189   1        #if(_KEY_TYPE == _KT_PCB2660_003)
+1190   1          if (_MENU_KEY_MASK == CKeyScan() || _MENU_KEY_MESSAGE == ucIRKey || _IR_MENU_KEY_MESSAGE == ucIRKey)
+1191   1              return 1;
+1192   1        #endif
+1193   1        
+1194   1        #if(_KEY_TYPE == _KT_PCB2660_003_5KEY)
+                    if (_MENU_KEY_MASK == CKeyScan() || _ESC_KEY_MESSAGE == ucIRKey)
+                      return 1;
+               #endif
+1198   1          return 0;
+1199   1      }
+1200          //-----------------------------------------------------------------------
+1201          
+1202          #endif      //#if(_OSD_TYPE == _OSD003)
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   4047    ----
+   CONSTANT SIZE    =      1    ----
+   XDATA SIZE       =   ----      33
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

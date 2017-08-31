@@ -1,0 +1,386 @@
+C51 COMPILER V7.06   INT                                                                   04/29/2010 18:06:16 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE INT
+OBJECT MODULE PLACED IN .\Output\Int.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\mcu\Int.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT
+                    -(.\Output\Int.lst) OBJECT(.\Output\Int.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Int.c No.0002
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #include "Core\Header\Include.h"
+   8          
+   9          #if defined(CONFIG_VBI_ENABLE)
+              void VBI_GetData();
+              #else
+  12          #define VBI_GetData();
+  13          #endif     
+  14          //--------------------------------------------------
+  15          // Timer0 Interrupt (375 us)
+  16          //--------------------------------------------------
+  17          void IntProcTimer0(void) interrupt 1
+  18          {
+  19   1      #if(0)
+                      static BYTE data ucTimer0Cnt = 0x00;
+              
+                  TR0 = _ON;
+                  TL0 = _TIMER0_COUNT_LBYTE;
+                  TH0 = _TIMER0_COUNT_HBYTE;
+              
+                  bNotifyTimer0Int = _TRUE;
+              
+                  if(--ucTimer0Cnt)
+                  {
+              
+                  }
+                  else
+                  {
+                      if(bTimer0Ctrl == _FALSE)
+                      {
+                          CTimerDecreaseTimerCnt();
+                      }
+                      ucTimer0Cnt = 10;
+                  }
+              
+              #else
+  42   1              static BYTE data ucTimer0Cnt = 0x00;
+  43   1              static BYTE data ucTimerCnt = 10;
+  44   1      
+  45   1              
+  46   1              EA = 0;
+  47   1              TR0 = _ON;
+  48   1      
+  49   1              TL0 = _TIMER0_COUNT_LBYTE;      
+  50   1              TH0 = _TIMER0_COUNT_HBYTE;
+  51   1              
+  52   1              
+  53   1              if((++ucTimer0Cnt) >= _EVENT_PERIOD) 
+  54   1              {
+C51 COMPILER V7.06   INT                                                                   04/29/2010 18:06:16 PAGE 2   
+
+  55   2                      ucTimer0Cnt = 0;
+  56   2                      bNotifyTimer0Int = _TRUE;
+  57   2                      if(ucTimerCnt)
+  58   2                              ucTimerCnt--;
+  59   2                              
+  60   2                      else if(bTimer0Ctrl == _FALSE) 
+  61   2                      {
+  62   3      
+  63   3                              CTimerDecreaseTimerCnt();
+  64   3                              ucTimerCnt = 0x0a;      //including the above 1.125ms, this will
+  65   3                                                                      //give about 5 sec delay before OSD
+  66   3                                                                      //menu/channel# got turn off
+  67   3                      }
+  68   2      
+  69   2      
+  70   2      #if(1)//_VIDEO_TV_SUPPORT)
+  71   2      
+  72   2      
+  73   2      #if(_SLEEP_FUNC)
+  74   2              if (0xff != ucAutoPowerDownTime && 0x00 != ucAutoPowerDownTime)
+  75   2              {
+  76   3                  ucMinuteCount++;
+  77   3                  bShowTimerChg = 1;
+  78   3                  if (ucMinuteCount == _ONE_MINUTE_COUNT)  // 1 minute
+  79   3                  {
+  80   4                      ucAutoPowerDownTime--;
+  81   4                      ucMinuteCount = 0; 
+  82   4                  }
+  83   3              }
+  84   2      #endif
+  85   2      #endif
+  86   2              }
+  87   1              EA = 1;
+  88   1      #endif  
+  89   1      }
+  90          
+  91          //--------------------------------------------------
+  92          #if(_RS232_EN)
+              
+              //--------------------------------------------------
+              void UartRxData(void)
+              {
+                      if (fUartStart == 0) 
+                      {
+                              pUartData[0] = SBUF;
+                              fUartStart = 1;
+                              switch(pUartData[0])
+                              {
+                                      case UartCMD_DebugModeEnter:            // Enter debug mode
+                                      case UartCMD_DebugModeExit:             // Exit debug mode
+                                              ucUartRxCount = 4;
+                                              break;
+                                      case UartCMD_CScalerRead:                       // Read RTD2553V
+                                      case UartCMD_I2CRead:                           // Read I2C
+                                      case UartCMD_I2CWrite:                          // Write I2C
+                                              ucUartRxCount = 3;
+                                              break;
+                                      case UartCMD_CScalerWrite:              // Write RTD2553V
+                                              ucUartRxCount = 2;
+                                              break;
+                                      default:
+                                              fUartStart = 0;
+C51 COMPILER V7.06   INT                                                                   04/29/2010 18:06:16 PAGE 3   
+
+                                              break;
+                              }
+              
+                              ucUartRxIndex = 1;
+                      }
+                      else 
+                      {
+                              pUartData[ucUartRxIndex] = SBUF;
+                              ucUartRxIndex++;
+                              if (ucUartRxIndex > ucUartRxCount)
+                              {
+                                      fUartRxCmdSuccess = 1;
+                                      fUartStart = 0;
+                              }
+                      }
+              }
+              
+              //--------------------------------------------------
+              void IntProcUart(void) interrupt 4
+              {
+                      ES = 0; // disable uart interrupt.
+                      if (TI) 
+                      {
+                              TI = 0;
+                      }
+                      else if (RI) 
+                      {
+                              UartRxData();
+                              RI = 0;
+                      }
+                      ES = 1;
+              }
+              
+              
+              #endif
+ 152          //--------------------------------------------------
+ 153          
+ 154          #if(_DEBUG_TOOL == _ISP_FOR_RTD3580D_EMCU)
+              void IntProcDdcci(void)  interrupt 2
+              {
+                  BYTE tempbuf;
+                  
+                  EA=0;
+                  MCU_I2C_IRQ_CTRL2_FF2A  &= 0xDF; //host write/read enable
+                  if(!bRunCommand)
+                  {
+                      tempbuf = MCU_I2C_STATUS_FF27;   
+              
+                      if(tempbuf & 0x08)
+                          MCU_I2C_DATA_OUT_FF26 = TxBUF;       
+              
+                      if(tempbuf & 0x01) 
+                          ucDdcciCommandNumber = 0;
+              
+                      if(tempbuf & 0x02) 
+                          ucDdcciCommandNumber =0;
+                                      
+                      if(tempbuf & 0x04)
+                      {
+                          if(ucDdcciCommandNumber==0)
+                              ucDdcciData[ucDdcciCommandNumber] = MCU_I2C_SUB_IN_FF24;
+              
+C51 COMPILER V7.06   INT                                                                   04/29/2010 18:06:16 PAGE 4   
+
+                          ucDdcciCommandNumber++;
+                          ucDdcciData[ucDdcciCommandNumber] = MCU_I2C_DATA_IN_FF25;
+                          bRunCommand=_TRUE; 
+                      }
+              
+                      MCU_I2C_STATUS_FF27 = tempbuf & 0xc0;
+                  }
+              
+                  EA=1;
+              }
+              
+              
+              #endif
+ 192          //--------------------------------------------------
+ 193          
+ 194          #if(_DEBUG_TOOL == _ISP_FOR_DDCCI && _SUPPORTDDCCI)
+ 195          void ReceiveEDIDINT1(void) interrupt 2
+ 196          {
+ 197   1              BYTE tempflag;
+ 198   1              
+ 199   1              //MCU_I2C_IRQ_CTRL2_FF2A  &= 0xDF; //host write/read enable
+ 200   1              tempflag = MCU_I2C_STATUS_FF27;
+ 201   1      
+ 202   1              EA  = 0;
+ 203   1              
+ 204   1          if(tempflag & DINI)     // SLAVEB Interrupt
+ 205   1              {
+ 206   2                      DDCCI_RxInt();
+ 207   2                      MCU_I2C_STATUS_FF27 = tempflag & (~DINI);  //Clear DDCRAMA IIC Stop Interrupt detect
+ 208   2              }
+ 209   1              else if(tempflag & DOUTI)           // SLAVEB Interrupt
+ 210   1              {
+ 211   2                      //MCU_I2C_IRQ_CTRL2_FF2A |= 0x20;
+ 212   2                      DDCCI_TxInt();
+ 213   2                      MCU_I2C_STATUS_FF27 = tempflag & (~DOUTI);  //Clear DDCRAMA IIC Stop Interrupt detect
+ 214   2          }
+ 215   1      
+ 216   1          MCU_I2C_STATUS2_FF29 = 0x00; 
+ 217   1          EA  = 1;
+ 218   1      }
+ 219          
+ 220          //---------------------------------------------------------------------------------------
+ 221          
+ 222          void DDCCI_RxInt()
+ 223          {       
+ 224   1              unsigned char rxByte = MCU_I2C_DATA_IN_FF25;
+ 225   1              
+ 226   1              switch(rxStatus)
+ 227   1              {
+ 228   2              case DDC2B_CLEAR:
+ 229   2      
+ 230   2                      if ( MCU_I2C_SUB_IN_FF24 == DDC2B_SRC_ADDRESS )
+ 231   2                      {
+ 232   3                              rxStatus = DDC2B_SRCADDRESS;
+ 233   3                              ucDDCCI_CheckSum = INITRxCK;
+ 234   3                      }
+ 235   2                      else
+ 236   2                      {
+ 237   3                              DDCCI_InitRx();
+ 238   3                              break;
+ 239   3                      }
+ 240   2                      
+C51 COMPILER V7.06   INT                                                                   04/29/2010 18:06:16 PAGE 5   
+
+ 241   2                      // getting the length...
+ 242   2              case DDC2B_SRCADDRESS:
+ 243   2                      // get the length
+ 244   2      
+ 245   2                      ucDDCCI_RxCount = rxByte & (~DDC2Bi_CONTROL_STATUS_FLAG);
+ 246   2                      // ...and if yes save the received byte in the rxBuffer
+ 247   2                      // and update the pointers...
+ 248   2                      ucDDCCI_RxBuf[ucDDCCI_RxIndex++] = rxByte;
+ 249   2                      ucDDCCI_CheckSum ^= rxByte;
+ 250   2                      // ...set the receive body state...
+ 251   2                      rxStatus = DDC2B_COMMAND;
+ 252   2                      //...and if it is a NULL message...
+ 253   2                      if (ucDDCCI_RxCount == 0)
+ 254   2                      {
+ 255   3                              // ...wait for CK
+ 256   3                              //rxStatus++;// = DDC2B_RECBODY;
+ 257   3                              //rxStatus++;// = DDC2B_WAITFORCK;
+ 258   3                              rxStatus = DDC2B_WAITFORCK; 
+ 259   3                      }
+ 260   2                      
+ 261   2                      else if(ucDDCCI_RxCount > RX_BUFFER_SIZE)
+ 262   2                      {
+ 263   3                              DDCCI_InitRx();
+ 264   3                      }
+ 265   2                      
+ 266   2                      break;
+ 267   2                      // ...here we are getting the command...
+ 268   2              case DDC2B_COMMAND:
+ 269   2                      // ...go to the recbody state
+ 270   2                      rxStatus = DDC2B_RECBODY;
+ 271   2                      // ...here we are getting the message body...
+ 272   2              case DDC2B_RECBODY:
+ 273   2                      ucDDCCI_RxBuf[ucDDCCI_RxIndex++] = rxByte;
+ 274   2                      ucDDCCI_CheckSum ^= rxByte;
+ 275   2                      ucDDCCI_RxCount--;
+ 276   2                      // ...and if this is the last byte in the message body...
+ 277   2                      if (ucDDCCI_RxCount == 0)
+ 278   2                              // ...set the wait for checksum flag
+ 279   2                              rxStatus = DDC2B_WAITFORCK;
+ 280   2                      break;
+ 281   2              case DDC2B_WAITFORCK:
+ 282   2                      // ...and if we have a checksum match...
+ 283   2                      if (ucDDCCI_CheckSum == rxByte)
+ 284   2                      {
+ 285   3                              // ...raise the completed flag - the buffer will be
+ 286   3                              // processed by the parser...
+ 287   3                              rxStatus = DDC2B_COMPLETED;
+ 288   3      
+ 289   3                      }
+ 290   2                      // ..else we have a checksum error...
+ 291   2                      else
+ 292   2                      {
+ 293   3                              // ...clear the rxState and the current buffer for a new message
+ 294   3                              DDCCI_InitRx();
+ 295   3                      }
+ 296   2                      break;
+ 297   2              default:
+ 298   2                      DDCCI_InitRx();
+ 299   2                      break;
+ 300   2                      
+ 301   2              }
+ 302   1      }
+C51 COMPILER V7.06   INT                                                                   04/29/2010 18:06:16 PAGE 6   
+
+ 303          //---------------------------------------------------------------------------------------
+ 304          void DDCCI_TxInt()
+ 305          {
+ 306   1      /*
+ 307   1          if (ucDDCCI_TxCount == 0)
+ 308   1          {
+ 309   1                      MCU_I2C_IRQ_CTRL2_FF2A  &= 0xDF; //host write/read enable
+ 310   1                      txBufferPtr = &ucDDCCI_NullStr[0];
+ 311   1                      ucDDCCI_TxCount = sizeof (ucDDCCI_NullStr);
+ 312   1          }*/
+ 313   1          // ...send out the current byte
+ 314   1              
+ 315   1          MCU_I2C_DATA_OUT_FF26 = *txBufferPtr++;
+ 316   1              
+ 317   1          ucDDCCI_TxCount--;
+ 318   1      
+ 319   1          if (ucDDCCI_TxCount == 0)
+ 320   1          {
+ 321   2                      MCU_I2C_IRQ_CTRL2_FF2A  = (MCU_I2C_IRQ_CTRL2_FF2A | _BIT6) & (~_BIT5); //host write/read enable
+ 322   2                      txBufferPtr = &ucDDCCI_NullStr[0];
+ 323   2                      ucDDCCI_TxCount = sizeof (ucDDCCI_NullStr);
+ 324   2          }    
+ 325   1      }
+ 326          //---------------------------------------------------------------------------------------
+ 327          void DDCCI_InitRx(void)
+ 328          {
+ 329   1              // clear the rxState...
+ 330   1              rxStatus = DDC2B_CLEAR;
+ 331   1              // ...and the current buffer for a new message
+ 332   1              ucDDCCI_RxIndex = 0;
+ 333   1      }
+ 334          //---------------------------------------------------------------------------------------
+ 335          void DDC2Bi_InitTx (void)
+ 336          {
+ 337   1              // initialize the transmit communication, so that either a valid...
+ 338   1              // ...or a NULL message is sent on a request from host
+ 339   1              txBufferPtr = &ucDDCCI_NullStr[0];
+ 340   1              ucDDCCI_TxCount = sizeof(ucDDCCI_NullStr) - 1;
+ 341   1              
+ 342   1          // a113
+ 343   1          //MCU_I2C_IRQ_CTRL2_FF2A |= 0x20;
+ 344   1      
+ 345   1          MCU_I2C_DATA_OUT_FF26 = *txBufferPtr++;
+ 346   1      }
+ 347          //---------------------------------------------------------------------------------------
+ 348          
+ 349          #endif
+ 350          
+ 351          
+ 352          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    530    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

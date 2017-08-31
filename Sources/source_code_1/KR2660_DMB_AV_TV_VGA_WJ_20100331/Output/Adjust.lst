@@ -1,0 +1,2387 @@
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE ADJUST
+OBJECT MODULE PLACED IN .\Output\Adjust.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\Adjust.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(
+                    -.\Output\Adjust.lst) OBJECT(.\Output\Adjust.obj)
+
+stmt level    source
+
+   1          /*===========================================================
+   2           * Copyright (c)      Realtek Semiconductor Corporation, 2005
+   3           * All rights reserved.
+   4           * ========================================================== */
+   5          
+   6          /*==================== File Description ===================== */
+   7          /**
+   8           * @file
+   9           *  This file is osd control declaration related functions.
+  10           *
+  11           * @author  $Author: hillwang $
+  12           * @date    $Date: 2006-09-07 19:38:12 +0800 (?Ÿæ??? 07 ä¹æ? 2006) $
+  13           * @version     $Revision: 1187 $
+  14           * @ingroup Auto
+  15           */
+  16          
+  17          /**
+  18           * @addtogroup Auto
+  19           * @{
+  20           */
+  21          
+  22          #define _ADJUST_C
+  23          /*===================== Module dependency  ================== */
+  24          #include "Core\Header\Include.h"
+  25          
+  26          /*======================= Private Types ===================== */
+  27          
+  28          /*======================== Definitions ====================== */
+  29          
+  30          /*========================== Variables ====================== */
+  31          //BYTE idata ucAdjustCtrl = 0;
+  32          
+  33          /*=================== Local Functions Phototype ==============*/
+  34          static void CAdjustSetSharpnessTable(bit scaling,BYTE code *pArray0, BYTE code *pArray1);
+  35          void CAdjustPeakingCoring(void);
+  36          void CAdjustPeakingFilter(SBYTE ucPeaking);
+  37          
+  38          /*=========================== Functions ===================== */
+  39          //--------------------------------------------------
+  40          // Description  : Adjust IHS delay
+  41          // Input Value  : IHS delay
+  42          // Output Value : None
+  43          //--------------------------------------------------
+  44          void CAdjustIHSDelay(WORD usIHSDelay)
+  45          {
+  46   1          CScalerSetBit(_VGIP_HV_DELAY_1E, ~_BIT0, HIBYTE(usIHSDelay) & _BIT0);
+  47   1          CScalerSetByte(_IHS_DELAY_1D, LOBYTE(usIHSDelay));
+  48   1      }
+  49          
+  50          //--------------------------------------------------
+  51          // Description  : Adjust IVS delay
+  52          // Input Value  : IVS delay
+  53          // Output Value : None
+  54          //--------------------------------------------------
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 2   
+
+  55          void CAdjustIVSDelay(WORD usIVSDelay)
+  56          {
+  57   1          CScalerSetBit(_VGIP_HV_DELAY_1E, ~_BIT1, (usIVSDelay >> 7) & _BIT1);
+  58   1          CScalerSetByte(_IVS_DELAY_1C, LOBYTE(usIVSDelay));
+  59   1      }
+  60          
+  61          //--------------------------------------------------
+  62          // Description  : Adjust Dclk offset
+  63          // Input Value  : Dclk offset
+  64          // Output Value : None
+  65          //--------------------------------------------------
+  66          void CAdjustDclkOffset(WORD usDclkOffset)
+  67          {                      
+  68   1          CScalerPageSelect(_PAGE1);
+  69   1          CScalerSetBit(_P1_DCLK_FINE_TUNE_OFFSET_MSB_C4, 0xf0, HIBYTE(usDclkOffset) & 0x0f);
+  70   1          CScalerSetByte(_P1_DCLK_FINE_TUNE_OFFSET_LSB_C5, LOBYTE(usDclkOffset));
+  71   1          CScalerSetBit(_P1_DCLK_SPREAD_SPECTRUM_C6, ~_BIT2, _BIT2);
+  72   1      }
+  73          
+  74          //--------------------------------------------------
+  75          // Description  : Adjust spread spectrum range
+  76          // Input Value  : Spread spectrum range
+  77          // Output Value : None
+  78          //--------------------------------------------------
+  79          void CAdjustSpreadSpectrumRange(BYTE ucSpreadRange)
+  80          {
+  81   1          CScalerPageSelect(_PAGE1);
+  82   1          CScalerSetBit(_P1_DCLK_SPREAD_SPECTRUM_C6, 0x0f, (ucSpreadRange << 4) & 0xf0);
+  83   1          CScalerSetBit(_P1_DCLK_SPREAD_SPECTRUM_C6, ~_BIT2, _BIT2);
+  84   1      }
+  85          
+  86          //--------------------------------------------------
+  87          // Description  : Sync processor measure start
+  88          // Input Value  : None
+  89          // Output Value : None
+  90          //--------------------------------------------------
+  91          void CAdjustSyncProcessorMeasureStart(void)
+  92          {
+  93   1          CScalerSetBit(_MEAS_HS_PERIOD_H_52, ~_BIT5, _BIT5);
+  94   1      }
+  95          
+  96          //--------------------------------------------------
+  97          // Description  : Turn on the error correction function
+  98          // Input Value  : None
+  99          // Output Value : None
+ 100          //--------------------------------------------------
+ 101          void CAdjustTMDSErrorCorrectionOn(void)
+ 102          {
+ 103   1          CScalerPageSelect(_PAGE2);
+ 104   1          CScalerSetBit(_P2_UP_DOWN_CTRL2_B7, ~(_BIT7 | _BIT6 | _BIT5), _BIT7);
+ 105   1      }
+ 106          
+ 107          #if(((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON)) && (_DVI_LONG_CABLE_SUPPORT == _ON))
+              //--------------------------------------------------
+              // Description  : Measure TMDS transition result
+              // Input Value  : ucType    --> _TMDS_MEASURE_AVE, _TMDS_MEASURE_MAX, _TMDS_MEASURE_MIN
+              //                ucSelect  --> _TMDS_MEASURE_HSYNC_BE, _TMDS_MEASURE_HSYNC_AF, _TMDS_MEASURE_DE_BE, _TMDS
+             -_MEASURE_DE_AF
+              // Output Value : Transition result
+              //--------------------------------------------------
+              BYTE CAdjustTMDSMeasure(BYTE ucType, BYTE ucSelect)
+              {
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 3   
+
+                  BYTE result;
+              
+                  CScalerPageSelect(_PAGE2);
+                  CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~(_BIT6 | _BIT5), (ucType << 5));
+                  CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~(_BIT7 | _BIT4 | _BIT3), (_BIT7 | (ucSelect << 3)));
+              
+                  if(CTimerPollingEventProc(60, CMiscTMDSMeasureEvent) == _FALSE)
+                  {
+                      CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~_BIT7, 0x00);
+                      return 0xff;
+                  }
+              
+                  CScalerRead(_P2_TMDS_MEAS_RESULT1_A3, 1, &result, _NON_AUTOINC);
+              
+                  return (result & 0x7f);
+              }
+              
+              //--------------------------------------------------
+              // Description  : TMDS CRC check process before displaying
+              // Input Value  : None
+              // Output Value : None
+              //--------------------------------------------------
+              void CAdjustTMDSCRCCheck(void)
+              {
+                  BYTE temp0, temp1;
+                  DWORD dsod0, dsod1;
+              
+                  if(GET_FRAMESYNCSTATUS())
+                  {
+                      CTimerDelayXms(20);
+              
+                      temp0 = 0;
+                      temp0 += CAdjustTMDSCRC(&pData[8]);
+                      temp0 += CAdjustTMDSCRC(&pData[12]);
+                      dsod0 = abs(((DWORD *)pData)[2] - ((DWORD *)pData)[3]);
+              
+                      if(temp0 < 2)
+                      {
+                          CScalerPageSelect(_PAGE2);
+                          CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT5 | _BIT6), CScalerGetBit(_P2_ANALOG_COMMON_CT
+             -RL2_AB, (_BIT6 | _BIT5)) ^ (_BIT5 | _BIT6));
+              
+                          temp1 = 0;
+                              temp1 += CAdjustTMDSCRC(&pData[8]);
+                              temp1 += CAdjustTMDSCRC(&pData[12]);
+                              dsod1 = abs(((DWORD *)pData)[2] - ((DWORD *)pData)[3]);
+              
+                              if(temp1 < 2)
+                              {
+                                  if(GET_USE_TRANSITION_RESULT())
+                                  {
+                                  CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT5 | _BIT6), CScalerGetBit(_P2_ANALOG_C
+             -OMMON_CTRL2_AB, (_BIT6 | _BIT5)) ^ (_BIT5 | _BIT6));
+                                      }
+                                  else
+                              {
+                                          if(dsod0 <= dsod1)
+                                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT5 | _BIT6), CScalerGetBit(_P2_ANAL
+             -OG_COMMON_CTRL2_AB, (_BIT6 | _BIT5)) ^ (_BIT5 | _BIT6));
+                              }
+                          }
+                          else
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 4   
+
+                          {
+                                      //CModeSetDigitalCapture();
+                          }
+                      }
+                      else
+                      {
+                              //CModeSetDigitalCapture();
+                      }
+                  }
+              }
+              
+              //--------------------------------------------------
+              // Description  : Get TMDS transition difference
+              // Input Value  : ucPar     --> _MEASURE_HSYNC or _MEASURE_DE
+              // Output Value : Transition difference result
+              //--------------------------------------------------
+              BYTE CAdjustTMDSEqualizerCheck(BYTE ucPar)
+              {
+                  BYTE result0, result1;
+              
+                  if(ucPar == _MEASURE_HSYNC)
+                  {
+                      result0 = CAdjustTMDSMeasure(_TMDS_MEASURE_MAX, _TMDS_MEASURE_HSYNC_BE);
+                      if(result0 == 0xff)     return 0xff;
+                      else if(result0 < 6)    return 0xfe;
+              
+                      result1 = CAdjustTMDSMeasure(_TMDS_MEASURE_MIN, _TMDS_MEASURE_HSYNC_AF);
+                      if(result1 == 0xff)     return 0xff;
+                      else if(result1 < 6)    return 0xfe;
+                  }
+                  else if(ucPar == _MEASURE_DE)
+                  {
+                      result0 = CAdjustTMDSMeasure(_TMDS_MEASURE_MAX, _TMDS_MEASURE_DE_BE);
+                      if(result0 == 0xff)     return 0xff;
+                      else if(result0 < 6)    return 0xfe;
+              
+                      result1 = CAdjustTMDSMeasure(_TMDS_MEASURE_MAX, _TMDS_MEASURE_DE_AF);
+                      if(result1 == 0xff)     return 0xff;
+                      else if(result1 < 6)    return 0xfe;
+                  }
+              
+                  result0 = abs(result0 - result1);
+              
+                  if(result0 <= 2)
+                      result0 = 0;
+              
+                  return result0;
+              }
+              
+              //--------------------------------------------------
+              // Description  : Adjust TMDS equalizer setting
+              // Input Value  : None
+              // Output Value : return _TRUE if success
+              //--------------------------------------------------
+              bit CAdjustTMDSEqualizer(void)
+              {
+                  BYTE cnt, result0, result1;
+              
+                  CLR_USE_TRANSITION_RESULT();
+                  CScalerPageSelect(_PAGE2);
+                  CScalerSetByte(_P2_TMDS_MEAS_SELECT_A1, 0x21);
+                  CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~(_BIT6 | _BIT5), _BIT5);
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 5   
+
+              
+                  cnt = 1;
+                  do
+                  {
+                      CScalerSetBit(_P2_TMDS_MEAS_SELECT_A1, 0xf0, (cnt%16));
+              
+                      result0 = CAdjustTMDSMeasure(_TMDS_MEASURE_MAX, _TMDS_MEASURE_DE_BE);
+                      if(result0 == 0xff)
+                          return _FALSE;
+              
+                      if(result0 > 80)
+                          break;
+              
+                      cnt++;
+                  }
+                  while(cnt <= 16);
+              
+                  cnt = 0;
+              
+                  CScalerPageSelect(_PAGE2);
+                  CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), 0x00);
+                  result0 = CAdjustTMDSEqualizerCheck(_MEASURE_HSYNC);
+                  if(result0 == 0xff)     return _FALSE;
+                  if(result0 == 0xfe)     cnt += 1;
+              
+                  CScalerPageSelect(_PAGE2);
+                  CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), _BIT4);
+                  result1 = CAdjustTMDSEqualizerCheck(_MEASURE_HSYNC);
+                  if(result1 == 0xff)     return _FALSE;
+                  if(result1 == 0xfe)     cnt += 2;
+              
+                  if((abs(result0 - result1) <= 2) || (cnt != 0))
+                  {
+                      cnt = 0;
+              
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), 0x00);
+                      result0 = CAdjustTMDSEqualizerCheck(_MEASURE_DE);
+                      if(result0 == 0xff)     return _FALSE;
+                      if(result0 == 0xfe)     cnt += 1;
+              
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), _BIT4);
+                      result1 = CAdjustTMDSEqualizerCheck(_MEASURE_DE);
+                      if(result1 == 0xff)     return _FALSE;
+                      if(result1 == 0xfe)     cnt += 2;
+                  }
+              
+                  if((result0 <= result1) || (cnt >= 2))
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), (_BIT6 | _BIT5 | _BIT4));
+              
+                  if(abs(result0 - result1) > 2)
+                      SET_USE_TRANSITION_RESULT();
+              
+                  return _TRUE;
+              }
+              #endif  // End of #if(((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON)) && (_DVI_LONG_CABLE_SUPPORT == _O
+             -N))
+ 292          
+ 293          #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+              //--------------------------------------------------
+              // Description  : Set digital mode capture
+              // Input Value  : None
+              // Output Value : None
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 6   
+
+              //--------------------------------------------------
+              void CAdjustSetDigitalCapture(void)
+              {
+                  CScalerSetBit(_VGIP_CTRL_10, ~_BIT1, _BIT1);
+                  CScalerSetBit(_IPH_ACT_STA_H_14, 0xf8, 0x00);
+                  CScalerSetByte(_IPH_ACT_STA_L_15, 0x00);
+                  CScalerSetBit(_IPV_ACT_STA_H_18, ~(_BIT2 | _BIT1 | _BIT0), _BIT2 | _BIT1 | _BIT0);
+                  CScalerSetByte(_IPV_ACT_STA_L_19, 0x00);
+              }
+              
+              #if(_DVI_LONG_CABLE_SUPPORT == _ON)
+              //--------------------------------------------------
+              // Description  : Measure TMDS CRC value
+              // Input Value  : None
+              // Output Value : CRC value, DWORD data type
+              //--------------------------------------------------
+              DWORD CAdjustTMDSCRCMeasure(void)
+              {
+                  BYTE result[4];
+              
+                  result[0] = 0;
+                  CScalerPageSelect(_PAGE2);
+                  CScalerSetBit(_P2_TMDS_CTRL_A4, ~_BIT0, 0x00);
+                  CScalerSetBit(_P2_TMDS_CTRL_A4, ~_BIT0, _BIT0);
+              
+                  if(CTimerPollingEventProc(60, CMiscTMDSCRCEvent) == _FALSE)
+                  {
+                      CScalerSetBit(_P2_TMDS_CTRL_A4, ~_BIT0, 0x00);
+                      return 0xffffffffl;
+                  }
+              
+                  CTimerDelayXms(20);
+              
+                  CScalerRead(_P2_CRC_OUTPUT_BYTE_2_A5, 3, &result[1], _NON_AUTOINC);
+              
+                  return ((DWORD *)result)[0];
+              }
+              
+              //--------------------------------------------------
+              // Description  : Do two times CRC check and get phase SOD value
+              // Input Value  : pArray    --> SOD value buffer
+              // Output Value : Return 0 if CRCs are not the same or CRCs == 0
+              //--------------------------------------------------
+              BYTE CAdjustTMDSCRC(BYTE *pArray)
+              {
+                  BYTE temp;
+              
+                  CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x3b);
+                  CScalerSetByte(_STATUS0_02, 0x00);
+              
+                  ((DWORD *)pData)[0] = CAdjustTMDSCRCMeasure();
+                  ((DWORD *)pData)[1] = CAdjustTMDSCRCMeasure();
+              
+                  CScalerRead(_STATUS0_02, 1, &temp, _NON_AUTOINC);
+                  CScalerRead(_AUTO_PHASE_3_84, 4, pArray, _AUTOINC);
+              
+                  if((((DWORD *)pData)[0] != ((DWORD *)pData)[1]) || ((temp & 0x03) != 0) || (((DWORD *)pData)[0] == 0) 
+             -|| (((DWORD *)pData)[1] == 0))
+                      return 0;
+                  else
+                      return 1;
+              }
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 7   
+
+              #endif  // End of #if(_DVI_LONG_CABLE_SUPPORT == _ON)
+              
+              //--------------------------------------------------
+              // Description  : TMDS digital/analog capture check process before displaying
+              // Input Value  : None
+              // Output Value : None
+              //--------------------------------------------------
+              void CAdjustTMDSCaptureCheck(void)
+              {
+                  BYTE flag = 0;
+              
+                  if(flag)
+                  {
+                      CAdjustSetDigitalCapture();
+                      CTimerDelayXms(20);
+                  }
+              
+              }
+              #endif  // End of #if(_TMDS_SUPPORT == _ON)
+ 378          
+ 379          //--------------------------------------------------
+ 380          // Description  : Enable watch dog
+ 381          // Input Value  : ucPar --> Parameter for watch dog
+ 382          // Output Value : None
+ 383          //--------------------------------------------------
+ 384          void CAdjustEnableWatchDog(BYTE ucPar)
+ 385          {
+ 386   1          // add this line by Moya, we don't enable watch-dog at all.
+ 387   1          //return;
+ 388   1          if (bCNoCheckSyncMode())
+ 389   1              return;
+ 390   1      
+ 391   1          if(GET_FRAMESYNCSTATUS())
+ 392   1          {
+ 393   2              CScalerSetByte(_WATCH_DOG_CTRL0_0C, 0x00);
+ 394   2              CMiscClearStatusRegister();
+ 395   2              CScalerSetBit(_WATCH_DOG_CTRL0_0C, ~ucPar, 0x06 | ucPar);  //Ming-Yen
+ 396   2              ucPar = ucPar + 0; //Ming-Yen
+ 397   2          }
+ 398   1      }
+ 399          
+ 400          //--------------------------------------------------
+ 401          // Description  : Disable watch dog
+ 402          // Input Value  : ucPar --> Parameter for watch dog
+ 403          // Output Value : None
+ 404          //--------------------------------------------------
+ 405          void CAdjustDisableWatchDog(BYTE ucPar)
+ 406          {
+ 407   1          BYTE temp;
+ 408   1      
+ 409   1          CScalerSetBit(_WATCH_DOG_CTRL0_0C, ~ucPar, 0x00);
+ 410   1          temp = CScalerGetBit(_WATCH_DOG_CTRL0_0C, (_BIT7 | _BIT6 | _BIT5 | _BIT4 | _BIT3));
+ 411   1          if(temp == 0x00)
+ 412   1              CScalerSetByte(_WATCH_DOG_CTRL0_0C, 0x00);
+ 413   1      }
+ 414          
+ 415          //--------------------------------------------------
+ 416          // Description  : Adjust gamma
+ 417          // Input Value  : Gamma table type and gamma tables
+ 418          // Output Value : None
+ 419          //--------------------------------------------------
+ 420          void CAdjustGamma(BYTE ucGammaTableType, BYTE *pGammaTableArrayR, BYTE *pGammaTableArrayG, BYTE *pGammaTab
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 8   
+
+             -leArrayB)
+ 421          {
+ 422   1          WORD cnt;
+ 423   1          BYTE i, temp;
+ 424   1      
+ 425   1          if((ucGammaTableType == _COMPACT_GAMMA_NORMAL_TABLE) || (ucGammaTableType == _FULL_GAMMA_NORMAL_TABLE)
+             -)
+ 426   1          {
+ 427   2              CScalerSetByte(_GAMMA_CTRL_67, 0x80 | ucGammaTableType);
+ 428   2              CScalerWrite(_GAMMA_PORT_66, ((ucGammaTableType == _COMPACT_GAMMA_NORMAL_TABLE) ? 256 : 384), pGam
+             -maTableArrayR, _NON_AUTOINC);
+ 429   2              CScalerSetByte(_GAMMA_CTRL_67, 0x90 | ucGammaTableType);
+ 430   2              CScalerWrite(_GAMMA_PORT_66, ((ucGammaTableType == _COMPACT_GAMMA_NORMAL_TABLE) ? 256 : 384), pGam
+             -maTableArrayG, _NON_AUTOINC);
+ 431   2              CScalerSetByte(_GAMMA_CTRL_67, 0xa0 | ucGammaTableType);
+ 432   2              CScalerWrite(_GAMMA_PORT_66, ((ucGammaTableType == _COMPACT_GAMMA_NORMAL_TABLE) ? 256 : 384), pGam
+             -maTableArrayB, _NON_AUTOINC);
+ 433   2              CScalerSetByte(_GAMMA_CTRL_67, 0x40);
+ 434   2          }
+ 435   1      #if(_GAMMA_TYPE == _FULL_GAMMA_COMPRESS_TABLE2)
+                  else if(ucGammaTableType == _FULL_GAMMA_COMPRESS_TABLE2)
+                  {
+                   CScalerSetByte(_GAMMA_CTRL_67, 0x81);
+                  CRtdWriteGamma(pGammaTableArrayR);
+                  CScalerSetByte(_GAMMA_CTRL_67, 0x91);
+                  CRtdWriteGamma(pGammaTableArrayG);
+                  CScalerSetByte(_GAMMA_CTRL_67, 0xa1);
+                  CRtdWriteGamma(pGammaTableArrayB);
+                  CScalerSetByte(_GAMMA_CTRL_67, 0x40);   
+                  }
+              #endif  
+ 447   1          else if((ucGammaTableType == _COMPACT_GAMMA_COMPRESS_TABLE) || (ucGammaTableType == _FULL_GAMMA_COMPRE
+             -SS_TABLE))
+ 448   1          {
+ 449   2              for(i=0;i<3;i++)
+ 450   2              {
+ 451   3                  ucVLDCnt    = 0;
+ 452   3                  ucVLDTemp   = 0;
+ 453   3      
+ 454   3                  if(i == 0)
+ 455   3                  {
+ 456   4                      CScalerSetByte(_GAMMA_CTRL_67, 0x80 | (ucGammaTableType % 2));
+ 457   4                      pvldarray   = (pGammaTableArrayR + 16);
+ 458   4                  }
+ 459   3                  else if(i == 1)
+ 460   3                  {
+ 461   4                      CScalerSetByte(_GAMMA_CTRL_67, 0x90 | (ucGammaTableType % 2));
+ 462   4                      pvldarray   = (pGammaTableArrayG + 16);
+ 463   4                  }
+ 464   3                  else
+ 465   3                  {
+ 466   4                      CScalerSetByte(_GAMMA_CTRL_67, 0xa0 | (ucGammaTableType % 2));
+ 467   4                      pvldarray   = (pGammaTableArrayB + 16);
+ 468   4                  }
+ 469   3      
+ 470   3                  for(temp=0;temp<16;temp++)
+ 471   3                      pData[temp] = *(pvldarray + temp - 16);
+ 472   3      
+ 473   3                  for(cnt=0;cnt<((ucGammaTableType == _COMPACT_GAMMA_COMPRESS_TABLE) ? 256 : 384);cnt++)
+ 474   3                  {
+ 475   4                      temp    = CScalerGetVLD() << 4;
+ 476   4                      temp    |= CScalerGetVLD();
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 9   
+
+ 477   4                      CScalerSetByte(_GAMMA_PORT_66, temp);
+ 478   4                  }
+ 479   3              }
+ 480   2                  CScalerSetByte(_GAMMA_CTRL_67, 0x40);
+ 481   2              }
+ 482   1      }
+ 483          
+ 484          
+ 485          #if(_GAMMA_TYPE == _FULL_GAMMA_COMPRESS_TABLE2)
+              void CRtdWriteGamma(UINT8  *array)
+              {
+                  int i,k=0,m=0;
+                  int tmp;
+                  int diff0;
+                  int d2;
+                  int k0;
+               
+                  int outA;
+              
+                  k0=outA=*array++; // //2x+0
+                  diff0=*(array++);
+              
+                  for (i=0;i<256;i+=2)
+                  {
+                      tmp=*(array++);
+                      //---even----------------------
+                      d2=(tmp>>4)-8;
+                      if (d2==-8)
+                          d2=(char)*(array++);
+               // dump k0
+                      CScalerSetByte(_GAMMA_PORT_66,(k0>>2));
+                      outA=outA+diff0; // 2x+1
+               // dump d0,
+                      CScalerSetByte(_GAMMA_PORT_66,(((k0&3)<<6)|diff0));
+                      diff0=diff0+d2; // d[2x+1]
+              // dump d1
+                      if (i==254) 
+                          diff0=0; // Last item :: without d2;
+                      CScalerSetByte(_GAMMA_PORT_66,(diff0));
+                      m++; 
+                      k++;
+                      //---odd-----------------------
+                      d2=(tmp&0xf)-8;
+                      if(d2 == -8)
+                          d2 = (char)*array++;
+                      k0 = outA = outA + diff0;
+                      diff0 = diff0 + d2; // d[2x+1];
+                      m++; 
+                      k++;
+                  }
+              }
+              #endif
+ 529          
+ 530          
+ 531          //--------------------------------------------------
+ 532          // Description  : Set dithering
+ 533          // Input Value  : Dithering tables
+ 534          // Output Value : None
+ 535          //--------------------------------------------------
+ 536          void CAdjustDither(BYTE *pDitherSeqTable, BYTE * pDitherTable)
+ 537          {
+ 538   1          CScalerSetBit(_DITHERING_CTRL_6A, ~(_BIT7 | _BIT6), _BIT6);
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 10  
+
+ 539   1          CScalerWrite(_DITHERING_DATA_ACCESS_69, 24, pDitherSeqTable, _NON_AUTOINC);
+ 540   1          CScalerSetBit(_DITHERING_CTRL_6A, ~(_BIT7 | _BIT6), _BIT7);
+ 541   1          CScalerWrite(_DITHERING_DATA_ACCESS_69, 24, pDitherTable, _NON_AUTOINC);
+ 542   1          CScalerSetByte(_DITHERING_CTRL_6A, 0x38);
+ 543   1      }
+ 544          //--------------------------------------------------
+ 545          // Description  : Adjust sharpness for scale up
+ 546          // Input Value  : None
+ 547          // Output Value : None
+ 548          //--------------------------------------------------
+ 549          void CAdjustSharpnessForScaleUp(void)
+ 550          {
+ 551   1          CAdjustSetSharpnessTable(_SCALE_UP,tSU_COEF_TABLE[GET_SHARPNESS()], tSU_COEF_TABLE[GET_SHARPNESS()]);
+ 552   1      }
+ 553          //--------------------------------------------------
+ 554          // Description  : Adjust sharpness for scale down
+ 555          // Input Value  : None
+ 556          // Output Value : None
+ 557          //--------------------------------------------------
+ 558          void CAdjustSharpnessForScaleDown(void)
+ 559          {
+ 560   1          CAdjustSetSharpnessTable(_SCALE_DOWN, tSCALE_DOWN_COEF_TABLE[GET_SHARPNESS()], tSCALE_DOWN_COEF_TABLE[
+             -GET_SHARPNESS()]);
+ 561   1      }
+ 562          
+ 563          //--------------------------------------------------
+ 564          // Description  : Set Sharpness Table
+ 565          // Input Value  : 1: Scale-Up
+ 566          //                0: Scale-Down  
+ 567          // Output Value : None
+ 568          //--------------------------------------------------
+ 569          void CAdjustSetSharpnessTable(bit scaling, BYTE code *pArray0, BYTE  code *pArray1)
+ 570          {
+ 571   1          if(scaling)
+ 572   1          {
+ 573   2              CScalerSetByte(_FILTER_CTRL_35, 0xb0);
+ 574   2              CScalerWrite(_FILTER_ACCESS_PORT_36, 128, pArray0, _NON_AUTOINC);
+ 575   2              CScalerSetByte(_FILTER_CTRL_35, 0xc0);
+ 576   2              CScalerWrite(_FILTER_ACCESS_PORT_36, 128, pArray1, _NON_AUTOINC);
+ 577   2              CScalerSetByte(_FILTER_CTRL_35, 0x00);
+ 578   2      
+ 579   2              CScalerSetByte(_FILTER_CTRL_35, 0x0b);
+ 580   2              CScalerWrite(_FILTER_ACCESS_PORT_36, 128, pArray0, _NON_AUTOINC);
+ 581   2              CScalerSetByte(_FILTER_CTRL_35, 0x0c);
+ 582   2              CScalerWrite(_FILTER_ACCESS_PORT_36, 128, pArray1, _NON_AUTOINC);
+ 583   2              CScalerSetByte(_FILTER_CTRL_35, 0x00);
+ 584   2          }
+ 585   1          else
+ 586   1          {
+ 587   2              CScalerPageSelect(_PAGE6);
+ 588   2              CScalerSetByte(_P6_UZD_FIR_COEF_INDEX_F3, 0x00);
+ 589   2              CScalerWrite(_P6_UZD_FIR_COEF_PORT_F4, 64, pArray0, _NON_AUTOINC);
+ 590   2              CScalerSetByte(_P6_UZD_FIR_COEF_INDEX_F3, 0x80);
+ 591   2              CScalerWrite(_P6_UZD_FIR_COEF_PORT_F4, 64, pArray1, _NON_AUTOINC);
+ 592   2              CScalerSetByte(_P6_UZD_FIR_COEF_INDEX_F3, 0x00);
+ 593   2          }
+ 594   1      }
+ 595          
+ 596          //--------------------------------------------------
+ 597          // Description  : Adjust color precessing brightness
+ 598          // Input Value  : None
+ 599          // Output Value : None
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 11  
+
+ 600          //--------------------------------------------------
+ 601          void CAdjustSetBrightness(void)
+ 602          {
+ 603   1          CScalerSetByte(_CB_ACCESS_PORT_64, 0x80);
+ 604   1          CScalerWrite(_CB_DATA_PORT_65, 3, pData, _NON_AUTOINC);
+ 605   1          CScalerSetByte(_CB_ACCESS_PORT_64, 0x00);
+ 606   1      }
+ 607          
+ 608          //--------------------------------------------------
+ 609          // Description  : Adjust color processing contrast
+ 610          // Input Value  : None
+ 611          // Output Value : None
+ 612          //--------------------------------------------------
+ 613          void CAdjustSetContrast(void)
+ 614          {
+ 615   1          CScalerSetByte(_CB_ACCESS_PORT_64, 0x83);
+ 616   1          CScalerWrite(_CB_DATA_PORT_65, 3, pData, _NON_AUTOINC);
+ 617   1          CScalerSetByte(_CB_ACCESS_PORT_64, 0x00);
+ 618   1      }
+ 619          
+ 620          //--------------------------------------------------
+ 621          // Description  : Adjust ADC gain
+ 622          // Input Value  : None
+ 623          // Output Value : None
+ 624          //--------------------------------------------------
+ 625          void CAdjustAdcGain(void)
+ 626          {
+ 627   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+ 628   1          {
+ 629   2      #if(_ADC0_INPUT_SWAP_RG == _ON)
+                      pData[1] = stAdcData.AdcGain[_RED];
+                      pData[0] = stAdcData.AdcGain[_GREEN];
+                      pData[2] = stAdcData.AdcGain[_BLUE];
+              
+              #elif(_ADC0_INPUT_SWAP_RB == _ON)
+                      pData[2] = stAdcData.AdcGain[_RED];
+                      pData[1] = stAdcData.AdcGain[_GREEN];
+                      pData[0] = stAdcData.AdcGain[_BLUE];
+              
+              #elif(_ADC0_INPUT_SWAP_GB == _ON)
+                      pData[0] = stAdcData.AdcGain[_RED];
+                      pData[2] = stAdcData.AdcGain[_GREEN];
+                      pData[1] = stAdcData.AdcGain[_BLUE];
+              #else
+ 644   2              pData[0] = stAdcData.AdcGain[_RED];
+ 645   2              pData[1] = stAdcData.AdcGain[_GREEN];
+ 646   2              pData[2] = stAdcData.AdcGain[_BLUE];
+ 647   2      #endif//(_ADC_INPUT_SWAP_RG == _ON)
+ 648   2          }
+ 649   1          else// if(GET_INPUTSOURCE_TYPE() == _SOURCE_VGA)
+ 650   1          {
+ 651   2      #if(_ADC1_INPUT_SWAP_RG == _ON)
+                      pData[1] = stYPbPrData.YPbPrGain[_RED];
+                      pData[0] = stYPbPrData.YPbPrGain[_GREEN];
+                      pData[2] = stYPbPrData.YPbPrGain[_BLUE];
+              #elif(_ADC1_INPUT_SWAP_RB == _ON)
+                      pData[2] = stYPbPrData.YPbPrGain[_RED];
+                      pData[1] = stYPbPrData.YPbPrGain[_GREEN];
+                      pData[0] = stYPbPrData.YPbPrGain[_BLUE];
+              #elif(_ADC1_INPUT_SWAP_GB == _ON)
+ 660   2              pData[0] = stYPbPrData.YPbPrGain[_RED];
+ 661   2              pData[2] = stYPbPrData.YPbPrGain[_GREEN];
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 12  
+
+ 662   2              pData[1] = stYPbPrData.YPbPrGain[_BLUE];
+ 663   2      #else
+                      pData[0] = stYPbPrData.YPbPrGain[_RED];
+                      pData[1] = stYPbPrData.YPbPrGain[_GREEN];
+                      pData[2] = stYPbPrData.YPbPrGain[_BLUE];
+              #endif
+ 668   2          }
+ 669   1          {
+ 670   2              CScalerPageSelect(_PAGE0);      
+ 671   2              CScalerWrite(_P0_RED_GAIN_C0, 3, pData, _AUTOINC);
+ 672   2      
+ 673   2          }
+ 674   1      }
+ 675          
+ 676          //--------------------------------------------------
+ 677          // Description  : Adjust ADC offset
+ 678          // Input Value  : None
+ 679          // Output Value : None
+ 680          //--------------------------------------------------
+ 681          void CAdjustAdcOffset(void)
+ 682          {
+ 683   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+ 684   1          {
+ 685   2      #if(_ADC0_INPUT_SWAP_RG == _ON)
+                      pData[4] = stAdcData.AdcOffset[_RED];
+                      pData[3] = stAdcData.AdcOffset[_GREEN];
+                      pData[5] = stAdcData.AdcOffset[_BLUE];
+              #elif(_ADC0_INPUT_SWAP_RB == _ON)
+                      pData[5] = stAdcData.AdcOffset[_RED];
+                      pData[4] = stAdcData.AdcOffset[_GREEN];
+                      pData[3] = stAdcData.AdcOffset[_BLUE];
+              #elif(_ADC0_INPUT_SWAP_GB == _ON)
+                      pData[3] = stAdcData.AdcOffset[_RED];
+                      pData[5] = stAdcData.AdcOffset[_GREEN];
+                      pData[4] = stAdcData.AdcOffset[_BLUE];
+              #else
+ 698   2              pData[3] = stAdcData.AdcOffset[_RED];
+ 699   2              pData[4] = stAdcData.AdcOffset[_GREEN];
+ 700   2              pData[5] = stAdcData.AdcOffset[_BLUE];
+ 701   2      #endif
+ 702   2          }
+ 703   1          else 
+ 704   1          {
+ 705   2      #if(_ADC1_INPUT_SWAP_RG == _ON)
+                      pData[4] = stYPbPrData.YPbPrOffset[_RED];
+                      pData[3] = stYPbPrData.YPbPrOffset[_GREEN];
+                      pData[5] = stYPbPrData.YPbPrOffset[_BLUE];
+              #elif(_ADC1_INPUT_SWAP_RB == _ON)
+                      pData[5] = stYPbPrData.YPbPrOffset[_RED];
+                      pData[4] = stYPbPrData.YPbPrOffset[_GREEN];
+                      pData[3] = stYPbPrData.YPbPrOffset[_BLUE];
+              #elif(_ADC1_INPUT_SWAP_GB == _ON)
+ 714   2              pData[3] = stYPbPrData.YPbPrOffset[_RED];
+ 715   2              pData[5] = stYPbPrData.YPbPrOffset[_GREEN];
+ 716   2              pData[4] = stYPbPrData.YPbPrOffset[_BLUE];
+ 717   2      #else
+                      pData[3] = stYPbPrData.YPbPrOffset[_RED];
+                      pData[4] = stYPbPrData.YPbPrOffset[_GREEN];
+                      pData[5] = stYPbPrData.YPbPrOffset[_BLUE];
+              #endif
+ 722   2          }
+ 723   1          {
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 13  
+
+ 724   2              CScalerPageSelect(_PAGE0);
+ 725   2              //pData[3] = pData[4] = pData[5] = 0x80;    //provisional ¼È©w
+ 726   2              CScalerWrite(_P0_RED_OFFSET_C3, 3, &pData[3], _AUTOINC);
+ 727   2          }
+ 728   1      }
+ 729          
+ 730          //--------------------------------------------------
+ 731          // Description  : Adjust ADC gain and offset
+ 732          // Input Value  : None
+ 733          // Output Value : None
+ 734          //--------------------------------------------------
+ 735          void CAdjustAdcGainOffset(void)
+ 736          {
+ 737   1          CAdjustAdcGain();
+ 738   1          CAdjustAdcOffset();
+ 739   1      }
+ 740          
+ 741          //--------------------------------------------------
+ 742          // Description  : Adjust background color
+ 743          // Input Value  : Red, green and blue color settings
+ 744          // Output Value : None
+ 745          //--------------------------------------------------
+ 746          void CAdjustBackgroundColor(BYTE ucRed, BYTE ucGreen, BYTE ucBlue)
+ 747          {
+ 748   1          CScalerSetBit(_OVERLAY_CTRL_6C, ~_BIT5, 0x00);
+ 749   1          CScalerSetBit(_OVERLAY_CTRL_6C, ~_BIT5, _BIT5);
+ 750   1      
+ 751   1          CScalerSetByte(_BGND_COLOR_CTRL_6D, ucRed);
+ 752   1          CScalerSetByte(_BGND_COLOR_CTRL_6D, ucGreen);
+ 753   1          CScalerSetByte(_BGND_COLOR_CTRL_6D, ucBlue);
+ 754   1      
+ 755   1          CScalerSetBit(_OVERLAY_CTRL_6C, ~_BIT5, 0x00);
+ 756   1      }
+ 757          
+ 758          //--------------------------------------------------
+ 759          bit CheckInterLace(void)
+ 760          {
+ 761   1          CTimerDelayXms(200);
+ 762   1          CScalerRead(_IPV_ACT_LEN_H_1A, 1, pData, _NON_AUTOINC);
+ 763   1          
+ 764   1          if(pData[0] & 0x20)
+ 765   1              return 1;
+ 766   1              
+ 767   1          return 0;
+ 768   1      }
+ 769          
+ 770          //--------------------------------------------------
+ 771          void CAdjustInterlaceIVS2DVSDelay(void)
+ 772          {
+ 773   1          UINT16 usTemp;
+ 774   1          
+ 775   1      //    CScalerRead(_IPV_ACT_LEN_H_1A, 1, pData, _NON_AUTOINC);
+ 776   1      
+ 777   1          if(CTimerPollingEventProc(5, CheckInterLace))
+ 778   1          //if(pData[0] & 0x20)
+ 779   1          {
+ 780   2              CScalerSetBit(_SCALE_CTRL_32, ~(_BIT7 | _BIT6), _BIT7); 
+ 781   2              CScalerRead(_IPV_ACT_LEN_H_1A, 2, pData, _AUTOINC);
+ 782   2              usTemp = (((WORD) pData[0] & 0x07) << 8) | (WORD) pData[1];
+ 783   2              if(usTemp <= 288)   //480i 576i 
+ 784   2                  CScalerSetBit(_VGIP_SIGINV_11, ~_BIT4, 0);
+ 785   2              else
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 14  
+
+ 786   2                  CScalerSetBit(_VGIP_SIGINV_11, ~_BIT4, _BIT4);      
+ 787   2      
+ 788   2      
+ 789   2              CScalerRead(_IV_DV_DELAY_CLK_ODD_41, LENGTH(1), pData, _NON_AUTOINC);
+ 790   2              usTemp = (WORD)pData[0] * 16 + 16;
+ 791   2              usTemp += stModeInfo.IHTotal/2;
+ 792   2      
+ 793   2              CScalerSetByte(_IV_DV_DELAY_CLK_ODD_41, ((usTemp - 16) / 16));
+ 794   2              usTemp -= stModeInfo.IHTotal / 2;
+ 795   2              //usTemp += stModeInfo.IHTotal / 2;
+ 796   2      
+ 797   2              CScalerSetByte(_IV_DV_DELAY_CLK_EVEN_42, ((usTemp - 16) / 16));
+ 798   2      
+ 799   2              CScalerSetBit(_FS_DELAY_FINE_TUNING_43, ~_BIT1, _BIT1);
+ 800   2              CScalerSetBit(_IPV_ACT_LEN_H_1A, 0xff, 0x20); //forster modified 061123 to fix the frame sync prob
+             -lem
+ 801   2      
+ 802   2          }
+ 803   1      }
+ 804          
+ 805          //--------------------------------------------------
+ 806          // Description  : Calculate the suitable IVS to DVS delay
+ 807          //                CR[38] : IVS to DVS delay in IHS lines
+ 808          //                CR[1E] : IVS to DVS delay in ICLK * 16
+ 809          // Input Value  : Scaling setting
+ 810          // Output Value : IV to DV delay lines
+ 811          //--------------------------------------------------
+ 812          BYTE CAdjustIVS2DVSDelay(BYTE ucOption)
+ 813          {
+ 814   1          ((DWORD *)pData)[0] = ((DWORD)stDisplayInfo.DHTotal * stDisplayInfo.DVStartPos) + Panel.DHStartPos;
+ 815   1      //    ((DWORD *)pData)[0] = ((DWORD)stDisplayInfo.DHTotal * Panel.DVStartPos) + Panel.DHStartPos;
+ 816   1          ((DWORD *)pData)[0] = ((DWORD *)pData)[0] * stModeInfo.IVHeight / stDisplayInfo.DVHeight * stModeInfo.
+             -IHTotal / stDisplayInfo.DHTotal;
+ 817   1          ((DWORD *)pData)[1] = ((DWORD)stModeInfo.IHTotal * (stModeInfo.IVStartPos - (ucVStartBias + _PROGRAM_V
+             -DELAY))) + stModeInfo.IHStartPos - (ucHStartBias + _PROGRAM_HDELAY);
+ 818   1      
+ 819   1          if (_GET_INPUT_SOURCE() !=_SOURCE_DVI && _GET_INPUT_SOURCE() !=_SOURCE_HDMI)
+ 820   1          {
+ 821   2              ((DWORD *)pData)[0] = ((DWORD)stDisplayInfo.DHTotal * Panel.DVStartPos) + Panel.DHStartPos;
+ 822   2              ((DWORD *)pData)[0] = ((DWORD *)pData)[0] * stModeInfo.IVHeight / stDisplayInfo.DVHeight * stModeI
+             -nfo.IHTotal / stDisplayInfo.DHTotal;
+ 823   2              ((DWORD *)pData)[1] = ((DWORD)stModeInfo.IHTotal * (stModeInfo.IVStartPos - (ucVStartBias + _PROGR
+             -AM_VDELAY))) + stModeInfo.IHStartPos - (ucHStartBias + _PROGRAM_HDELAY);
+ 824   2          }
+ 825   1      
+ 826   1          if(ucOption & _BIT0)
+ 827   1          {
+ 828   2              // V scale-up. Target 2.50 IHS delay
+ 829   2              // Reg[40] = 0 ==> Delay 1 line
+ 830   2              //((DWORD *)pData)[1] += (stModeInfo.IHTotal * 1) + 640;
+ 831   2              //eric 20070620
+ 832   2              CScalerPageSelect(_PAGE6);
+ 833   2              //if((CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT1 | _BIT0)) && (~(bit)(CScalerGetBit(_P6_UZD_CTRL0_E3, _
+             -BIT4))))
+ 834   2      #if(_DE_INTERLACE_SUPPORT == _ON)        
+ 835   2              if (bSourceVideo())
+ 836   2              {
+ 837   3                  if (stDisplayInfo.DHWidth < 700)
+ 838   3                      ((DWORD *)pData)[1] += (stModeInfo.IHTotal * 2) + 640;
+ 839   3                  else
+ 840   3                  {
+ 841   4                      if((~(bit)(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT4))) &&(CScalerGetBit(_P6_UZD_CTRL0_E3, _BI
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 15  
+
+             -T1))&&(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT0)))
+ 842   4                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal * 2) + 640;
+ 843   4                      else
+ 844   4                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal *1) + 640;
+ 845   4                  }
+ 846   3              }
+ 847   2              else
+ 848   2              {
+ 849   3                  if(stModeInfo.IVHeight <= 288)
+ 850   3                  { 
+ 851   4                      if((~(bit)(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT4))) &&(CScalerGetBit(_P6_UZD_CTRL0_E3, _BI
+             -T1))&&
+ 852   4                         (CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT0)) && (Panel.DHWidth > 700)) // EricLee 0402 add 
+             -for YPbPr
+ 853   4                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal * 3) + 640;
+ 854   4                      else
+ 855   4                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal *2) + 640;
+ 856   4                  }
+ 857   3                  else
+ 858   3                  { 
+ 859   4                      if((~(bit)(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT4))) &&(CScalerGetBit(_P6_UZD_CTRL0_E3, _BI
+             -T1))&&
+ 860   4                         (CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT0)) && (Panel.DHWidth > 700)) // EricLee 0402 add 
+             -for YPbPr
+ 861   4                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal * 2) + 640;
+ 862   4                      else
+ 863   4                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal *1) + 640;
+ 864   4                  }
+ 865   3              }
+ 866   2      #else
+                      if (bSourceVideo() && stDisplayInfo.DHWidth < 700)
+                          ((DWORD *)pData)[1] += (stModeInfo.IHTotal * 2) + 640;
+                      else
+                      {
+                          if((~(bit)(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT4))) &&(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT1))
+             -&&(CScalerGetBit(_P6_UZD_CTRL0_E3, _BIT0)))
+                              ((DWORD *)pData)[1] += (stModeInfo.IHTotal * 2) + 640;
+                          else
+                              ((DWORD *)pData)[1] += (stModeInfo.IHTotal *1) + 640;
+                      }
+              #endif
+ 877   2      
+ 878   2          }
+ 879   1          else
+ 880   1          {
+ 881   2              if (ucOption & _BIT1)
+ 882   2              {
+ 883   3                  // V scale-down. Target 1.75 IHS delay
+ 884   3                  ((DWORD *)pData)[1]  += stModeInfo.IHTotal + ((DWORD)640 * stModeInfo.IVHeight / stDisplayInfo
+             -.DVHeight);
+ 885   3              }
+ 886   2              else
+ 887   2              {
+ 888   3                  // V no scaling. Target 1.50 IHS delay
+ 889   3                  ((DWORD *)pData)[1]  += stModeInfo.IHTotal + 640;
+ 890   3              }
+ 891   2      
+ 892   2              // Turn on full-line buffer
+ 893   2              ((DWORD *)pData)[1]  += stModeInfo.IHTotal;
+ 894   2              CScalerSetBit(_SCALE_CTRL_32, ~_BIT4, _BIT4);
+ 895   2      
+ 896   2          }
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 16  
+
+ 897   1      
+ 898   1          if (((DWORD *)pData)[0] > ((DWORD *)pData)[1])
+ 899   1          {
+ 900   2              // You should never get into this code ....
+ 901   2          }
+ 902   1      
+ 903   1          ((DWORD *)pData)[0]  = ((DWORD *)pData)[1] - ((DWORD *)pData)[0];
+ 904   1      
+ 905   1          pData[14] = ((DWORD *)pData)[0] / stModeInfo.IHTotal;
+ 906   1          pData[15] = (((DWORD *)pData)[0] - ((DWORD)stModeInfo.IHTotal * pData[14])) / 16;
+ 907   1      
+ 908   1          CScalerSetBit(_FS_DELAY_FINE_TUNING_43, ~_BIT1, 0x00);
+ 909   1          CScalerSetByte(_IVS2DVS_DELAY_LINES_40, pData[14]);
+ 910   1          CScalerSetByte(_IV_DV_DELAY_CLK_ODD_41, pData[15]);
+ 911   1      
+ 912   1          return pData[14];
+ 913   1      }
+ 914          
+ 915          //--------------------------------------------------
+ 916          // Description  :
+ 917          // Input Value  :
+ 918          // Output Value :
+ 919          //--------------------------------------------------
+ 920          void CAdjustUpdateCenterData(void)
+ 921          {
+ 922   1          WORD delta;
+ 923   1      
+ 924   1          stModeUserCenterData.CenterHPos     = stModeUserData.HPosition;
+ 925   1          stModeUserCenterData.CenterVPos     = stModeUserData.VPosition;
+ 926   1      
+ 927   1          CAdjustCheckAdcClockRange(stModeUserData.Clock, &delta);
+ 928   1      
+ 929   1          if(delta < _CLOCK_BIAS)
+ 930   1          {
+ 931   2              stModeUserCenterData.CenterClock = stModeInfo.IHTotal;
+ 932   2          }
+ 933   1          else
+ 934   1          {
+ 935   2              if(stModeUserData.Clock < stModeInfo.IHTotal)
+ 936   2              {
+ 937   3                  if((stModeUserData.Clock - stModeInfo.IHTotal + delta) < _CLOCK_BIAS)
+ 938   3                  {
+ 939   4                      stModeUserCenterData.CenterClock = stModeInfo.IHTotal - delta + _CLOCK_BIAS;
+ 940   4                  }
+ 941   3                  else
+ 942   3                  {
+ 943   4                      stModeUserCenterData.CenterClock = stModeUserData.Clock;
+ 944   4                  }
+ 945   3              }
+ 946   2              else
+ 947   2              {
+ 948   3                  if((stModeInfo.IHTotal + delta - stModeUserData.Clock) < _CLOCK_BIAS)
+ 949   3                  {
+ 950   4                      stModeUserCenterData.CenterClock = stModeInfo.IHTotal + delta - _CLOCK_BIAS;
+ 951   4                  }
+ 952   3                  else
+ 953   3                  {
+ 954   4                      stModeUserCenterData.CenterClock = stModeUserData.Clock;
+ 955   4                  }
+ 956   3              }
+ 957   2          }
+ 958   1      }
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 17  
+
+ 959          
+ 960          //--------------------------------------------------
+ 961          // Description  : Check if the ADC clock (IHTotal) is out of range. Range = (BackPorch + FrontPorch) * 2 /
+             - 5 .
+ 962          // Input Value  : usClock   --> ADC Clock (IHTotal)
+ 963          // Output Value : Return _TRUE if not out of range
+ 964          //--------------------------------------------------
+ 965          bit CAdjustCheckAdcClockRange(WORD usClock, WORD *delta)
+ 966          {
+ 967   1          *delta   = (stModeInfo.IHTotal - stModeInfo.IHWidth * 8 / 10) / 2;
+ 968   1      
+ 969   1          if((usClock > stModeInfo.IHTotal) && ((usClock - stModeInfo.IHTotal) > *delta))
+ 970   1              return _FALSE;
+ 971   1      
+ 972   1          if((usClock <= stModeInfo.IHTotal) && ((stModeInfo.IHTotal - usClock) > *delta))
+ 973   1              return _FALSE;
+ 974   1      
+ 975   1          // yc 060222 for usClock error no display
+ 976   1          if(usClock < (stModeInfo.IHStartPos + _CAPTURE_HDELAY - (ucHStartBias + _PROGRAM_HDELAY) + stModeInfo.
+             -IHWidth))
+ 977   1              return _FALSE;
+ 978   1      
+ 979   1          return _TRUE;
+ 980   1      }
+ 981          
+ 982          //080324
+ 983          #if(1)
+ 984          //--------------------------------------------------
+ 985          // Description  : Set ADC clock (IHTotal)
+ 986          // Input Value  : usClock   --> Target ADC clock
+ 987          // Output Value : None
+ 988          //--------------------------------------------------
+ 989          #define _G_VALUE_DIVIDER_0  4
+ 990          #define _G_VALUE_DIVIDER_1  16
+ 991          #define _G_VALUE_DIVIDER_2  64
+ 992          #define _G_VALUE_DIVIDER_3  128
+ 993          #define _G_VALUE_DIVIDER_4  256
+ 994          #define _G_VALUE_DIVIDER_5  512
+ 995          
+ 996          //cyyeh 20080222 start
+ 997          void CAdjustAdcClock(WORD usClock , BYTE ucControl)
+ 998          {
+ 999   1          DWORD pllclock, icode;
+1000   1          BYTE mcode;
+1001   1          SBYTE STemp;
+1002   1          WORD pcode;
+1003   1          BYTE vco_divider = 2;
+1004   1      
+1005   1          if(ucControl == 1)
+1006   1              CAdjustAPLLFastLock(usClock);
+1007   1          else if(ucControl == 2)
+1008   1              CAdjustAdcClock_OSD(usClock);
+1009   1          else
+1010   1          {
+1011   2              CAdjustEnableWatchDog(_WD_DV_TIMEOUT);
+1012   2              CScalerPageSelect(_PAGE1);
+1013   2      /********************************************************
+1014   2      Fvco : Frequency of APLL
+1015   2      Fxtal : Frequency of Crystal
+1016   2      IHF : Input Horizontal Frequency
+1017   2      usClock : Divider number of input clock
+1018   2      stModeInfo.IHFreq = 10 * IHF(in KHz)
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 18  
+
+1019   2      _RTD_XTAl : Defined crystal clock unit in KHz
+1020   2       
+1021   2      Fvco = Fxtal*(M + K/16)/N1 = IHF * usClock * vco_divider
+1022   2      Assum N1 = 2
+1023   2      (M + K/16) = IHF * usClock * N1 * vco_divider / Fxtal
+1024   2      stModeInfo.IHFreq UINT in 100Hz
+1025   2      *********************************************************/
+1026   2              //ADC sampling clock, UNIT in KHz
+1027   2              pllclock = (DWORD)stModeInfo.IHFreq * usClock / 10;  
+1028   2              vco_divider = pllclock < 100000 ? 4 : 2;   
+1029   2              //Get (M + K/16) * 1024
+1030   2              pllclock  = ((pllclock * _APLL_N_CODE * vco_divider) << 10 ) / _RTD_XTAL;
+1031   2              CScalerPageSelect(_PAGE1);
+1032   2              CScalerSetByte(_P1_PLL_DIV_CTRL_A0, 0x08);
+1033   2              CScalerSetByte(_P1_DDS_MIX_2_B9, 0xff);
+1034   2              CScalerSetByte(_P1_PLL_CRNT_AE, 0x65);
+1035   2              CScalerSetBit(_P1_PLLDIV_H_B1, ~(_BIT6 | _BIT5 | _BIT4), (vco_divider == 2) ? (_BIT6 | _BIT5) : (_
+             -BIT6 | _BIT5 | _BIT4));
+1036   2              //Set the divide number
+1037   2              CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+1038   2              CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+1039   2              CAdjustGetAPLLSetting(usClock);
+1040   2              //Set N code
+1041   2              CScalerSetBit(_P1_PLL_N_AD, 0xf8, ((_APLL_N_CODE - 2) & 0x07));
+1042   2              //Get M, K code, M + K/16 = pllclock / 1024
+1043   2              mcode = pllclock >> 10; //M is the integer part
+1044   2              //CScalerSetByte(0x04,mcode );
+1045   2              //K is the fraction part quantized by 16
+1046   2              STemp = ((DWORD)pllclock - ((DWORD)mcode << 10)) >> 6;
+1047   2              //K is range from -8 ~ 7
+1048   2              if(STemp>7)
+1049   2              {
+1050   3                  mcode +=1;
+1051   3                  STemp -= 16;
+1052   3              }
+1053   2              else if(STemp<(-8))
+1054   2              {
+1055   3                  mcode -=1;
+1056   3                  STemp += 16;
+1057   3              }
+1058   2              //set M, N, K code
+1059   2              CScalerSetByte(_P1_PLL_M_AC, (mcode - 3)); 
+1060   2              CScalerSetBit(_P1_PLL_N_AD, 0x0f, (((STemp & 0x0f) << 4) | (_APLL_N_CODE - 2)));
+1061   2              CScalerSetByte(0xA4, 0x80);
+1062   2              CTimerDelayXms(1);
+1063   2              CScalerRead(0xA4, 2, pData, _AUTOINC);
+1064   2              usPEValue =  ( ((pData[0]&0x0F)<<8) | pData[1] );
+1065   2              usPEValue = 1000000/(usPEValue*(_RTD_XTAL/1000));   // unit : ps
+1066   2      /****************************************************************************
+1067   2          Formula :
+1068   2      
+1069   2            I_gain       Ths                    PE(UNIT)                   1
+1070   2          --------- x  ------- = ------------------------------------ x  -----
+1071   2             2^22        Tbck        Txclk x 16N/(16M +- K) x 1/16         8
+1072   2      
+1073   2            I_gain         Ths                      PE(UNIT)                   1
+1074   2          --------- x  ----------- = ------------------------------------ x  -----
+1075   2             2^22       Tclk x N         Txclk x 16N/(16M +- K) x 1/16         8
+1076   2      
+1077   2                     2^22 x PE_U x (16M +- K)        1
+1078   2          I_gain = ----------------------------- x -----
+1079   2                               Ths                   8
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 19  
+
+1080   2      
+1081   2              2^19 x PE_U x (16M +- K)   
+1082   2          = -----------------------------
+1083   2                        Ths              
+1084   2      
+1085   2          = IHF x 2^19 x PE_U x (16M +- K)
+1086   2      ****************************************************************************/
+1087   2      // (M + K/16) = pllclock / 1024
+1088   2      // 16M + K = 16 * pllclock / 1024
+1089   2      // 2^19 * 2^4 / 2^10 = 2^13
+1090   2      // _PE_VALUE UNIT is ps, so result has to multiply 10^(-12)
+1091   2      // stModeInfo.IHFreq/10 UNIT is KHz, so result has to multiply 10^2
+1092   2          /*
+1093   2              icode = (DWORD)((stModeInfo.IHFreq) * usPEValue * pllclock) / (DWORD)1220702;
+1094   2              icode &= 0x00007fff;
+1095   2              CScalerSetByte(_P1_I_CODE_M_A1,(BYTE)(icode >> 8));
+1096   2              CScalerSetByte(_P1_I_CODE_L_A2, (BYTE)icode);
+1097   2              // Set the P code
+1098   2              pcode = (7 * icode * _RTD_XTAL / stModeInfo.IHFreq /_APLL_N_CODE) >> 7;
+1099   2          //    pcode = 0xC0;
+1100   2          //*/
+1101   2          ///*    whhsiao 20080227 update-start
+1102   2              icode = (DWORD)((stModeInfo.IHFreq) * usPEValue * pllclock) / (DWORD)1220703;
+1103   2              //icode = icode>>2;   // n=32
+1104   2              icode = icode>>6;   // n=512
+1105   2              icode &= 0x00007fff;
+1106   2          
+1107   2              CScalerSetByte(_P1_I_CODE_M_A1,(BYTE)(icode >> 8));
+1108   2              CScalerSetByte(_P1_I_CODE_L_A2, (BYTE)icode);
+1109   2          
+1110   2              // Set the P code
+1111   2              //pcode = (5 * icode * _RTD_XTAL / (stModeInfo.IHFreq/10) / _APLL_N_CODE ) >> 7;    // Total gain=
+             -(1+5)/32
+1112   2              pcode = (63 * icode * _RTD_XTAL / (stModeInfo.IHFreq/10) / _APLL_N_CODE ) >> 7;    // Total gain=(
+             -1+63)/512
+1113   2          //    pcode = 0xC0;
+1114   2          //*/    whhsiao 20080227 update-end
+1115   2              if(pcode > 255)
+1116   2              {
+1117   3                  for(pData[0] = 9; pData[0] < 15; pData[0]++)
+1118   3                  {
+1119   4                      if((pcode >> pData[0]) == 0)
+1120   4                          break;
+1121   4                  }
+1122   3                  switch(pData[0]-9)//yc 20080225 
+1123   3                  {
+1124   4                      case 0:
+1125   4                          pcode = pcode / _G_VALUE_DIVIDER_0;
+1126   4                          break;
+1127   4                      case 1:
+1128   4                          pcode = pcode / _G_VALUE_DIVIDER_1;
+1129   4                          break;
+1130   4                      case 2:
+1131   4                          pcode = pcode / _G_VALUE_DIVIDER_2;
+1132   4                          break;
+1133   4                      case 3:
+1134   4                          pcode = pcode / _G_VALUE_DIVIDER_3;
+1135   4                          break;
+1136   4                      case 4:
+1137   4                          pcode = pcode / _G_VALUE_DIVIDER_4;
+1138   4                          break;
+1139   4                      case 5:
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 20  
+
+1140   4                          pcode = pcode / _G_VALUE_DIVIDER_5;
+1141   4                          break;
+1142   4                      default:
+1143   4                          break;
+1144   4                  }
+1145   3                  //pcode = pcode / g_value_divider[(pData[0] - 9)];
+1146   3                  STemp = pData[0] - 7;
+1147   3              }
+1148   2          
+1149   2              if(pcode==0)
+1150   2              pcode = 1;
+1151   2          
+1152   2              //g_value = 0x01;
+1153   2              CScalerSetByte(_P1_P_CODE_MAPPING_METHOD_B6, STemp << 2);
+1154   2          
+1155   2              CScalerSetByte(_P1_DDS_MIX_2_B9, 0x05); //set the P_code_max
+1156   2              CScalerSetByte(_P1_DDS_MIX_3_BA, 0x1e);
+1157   2              CScalerSetByte(_P1_P_CODE_A3, (BYTE)pcode);
+1158   2          
+1159   2              CScalerSetByte(_P1_PLLPHASE_CTRL1_B4, 0x00);
+1160   2          
+1161   2              CTimerWaitForEvent(_EVENT_IEN_STOP);
+1162   2              CTimerWaitForEvent(_EVENT_IEN_STOP);
+1163   2          
+1164   2              pData[0] = 32;
+1165   2              do
+1166   2              {
+1167   3                  CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+1168   3                  CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+1169   3                  CScalerSetByte(_P1_PLLPHASE_CTRL1_B4, 0x00);
+1170   3          
+1171   3                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+1172   3                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+1173   3          
+1174   3              }while(CAdjustGetAPLLSetting(usClock) && --pData[0]);
+1175   2          
+1176   2              CPowerADCAPLLOn();
+1177   2              
+1178   2          
+1179   2              CTimerWaitForEvent(_EVENT_IEN_STOP);
+1180   2              CTimerWaitForEvent(_EVENT_IEN_STOP);
+1181   2              CTimerWaitForEvent(_EVENT_IEN_STOP);
+1182   2          
+1183   2              CAdjustGetAPLLSetting(usClock);
+1184   2          
+1185   2              CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x00);
+1186   2          
+1187   2              CMiscClearStatusRegister();
+1188   2      
+1189   2          }
+1190   1      }
+1191          
+1192          void CAdjustAPLLFastLock(WORD usClock)
+1193          {
+1194   1          DWORD delta, pll_divider , pll_divider_k , pllclock , pll_divider_old ;
+1195   1          BYTE mcode ;
+1196   1          SBYTE kcode , delta_k , final_k , delta_m=0;
+1197   1          DWORD sum_i_now;
+1198   1          ///*    whhsiao 20080227 update-start
+1199   1          SDWORD sum_i_now_temp[2]={0,0};
+1200   1          BYTE  times;
+1201   1          //*/    whhsiao 20080227 update-end
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 21  
+
+1202   1      
+1203   1          //ADC sampling clock, UNIT in KHz
+1204   1          pllclock = (DWORD)stModeInfo.IHFreq * usClock / 10;
+1205   1          mcode = pllclock < 100000 ? 4 : 2;
+1206   1          //Get (M + K/16) * 1024
+1207   1          pll_divider_old  = (((pllclock * _APLL_N_CODE * mcode) << 10 ) / _RTD_XTAL) << 3;
+1208   1          CScalerPageSelect(_PAGE1);
+1209   1      /*
+1210   1          CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x04);
+1211   1          CTimerDelayXms(1);
+1212   1          CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x03);
+1213   1          CScalerRead(_P1_FAST_PLL_ISUM_AB, 4, pData, _NON_AUTOINC);
+1214   1      
+1215   1          sum_i_now = ( (((DWORD)pData[0]<<24)&0x7000000) | (((DWORD)pData[1]<<16)&0xff0000)| (((DWORD)pData[2]<
+             -<8)&0xff00) | ((DWORD)pData[3]&0xff)) ;
+1216   1      */
+1217   1      ///*    whhsiao 20080227 update-start
+1218   1          for (times=0;times<10;times++)
+1219   1          {
+1220   2          CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x04);
+1221   2          CTimerDelayXms(1);
+1222   2          CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x03);
+1223   2          CScalerRead(_P1_FAST_PLL_ISUM_AB, 4, pData, _NON_AUTOINC);
+1224   2      
+1225   2          sum_i_now_temp[1] = ( (((DWORD)pData[0]<<24)&0x7000000) | (((DWORD)pData[1]<<16)&0xff0000)| (((DWORD)p
+             -Data[2]<<8)&0xff00) | ((DWORD)pData[3]&0xff)) ;
+1226   2      
+1227   2          if ((sum_i_now_temp[1]>>26) ==1)
+1228   2              sum_i_now_temp[1] = sum_i_now_temp[1] | 0xF8000000;
+1229   2      
+1230   2          sum_i_now_temp[0] += sum_i_now_temp[1];
+1231   2          CTimerDelayXms(1);
+1232   2          }
+1233   1      
+1234   1          if ( (sum_i_now_temp[0]>>31) == 1)
+1235   1              sum_i_now = ((sum_i_now_temp[0]/(SBYTE)10)^0xFFFFFFFF)+1;
+1236   1          else
+1237   1              sum_i_now = sum_i_now_temp[0]/(SBYTE)10;
+1238   1      //*/    whhsiao 20080227 update-end
+1239   1      
+1240   1      
+1241   1          // calculate Final K Value    
+1242   1          delta_k =  sum_i_now >> 22;
+1243   1      
+1244   1          if ( (delta_k>>4) == 1 )
+1245   1          {  
+1246   2            delta_k |= 0xE0;
+1247   2            delta_k +=1;
+1248   2           }
+1249   1      
+1250   1          CScalerRead(0xAD, 1, pData, _NON_AUTOINC);
+1251   1          kcode = (pData[0]>>4)&0x0f;
+1252   1      
+1253   1          if ( (kcode>>3) == 1 )
+1254   1              kcode |= 0xF0;
+1255   1      
+1256   1          final_k = delta_k + kcode ;
+1257   1      
+1258   1      
+1259   1          if (final_k < -16)
+1260   1          {
+1261   2              delta_m = -1;
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 22  
+
+1262   2              final_k +=16;
+1263   2          }
+1264   1          else if (final_k >15)
+1265   1          {
+1266   2              delta_m =1 ;
+1267   2              final_k -=16;
+1268   2          }
+1269   1      
+1270   1          
+1271   1          final_k &= 0x0F;
+1272   1      
+1273   1          // calculate Sum_I
+1274   1          delta = sum_i_now & 0x3fffff;   // 22bits
+1275   1      
+1276   1      
+1277   1          // calculate Final M Value 
+1278   1          CScalerRead(0xAC, 1, pData, _NON_AUTOINC);
+1279   1          mcode = pData[0]+3;
+1280   1      
+1281   1          if (delta_m>0)
+1282   1              mcode += 1;
+1283   1          if (delta_m<0)
+1284   1              mcode -= 1;
+1285   1      
+1286   1          pll_divider = (DWORD)mcode << 26;
+1287   1      
+1288   1          pll_divider_k = (DWORD)final_k << 22;
+1289   1      
+1290   1      
+1291   1          if ( (final_k>>3) == 1 )                                 // final_k 2's 
+1292   1              pll_divider_k = 0x4000000 - pll_divider_k;
+1293   1      
+1294   1      
+1295   1          if ( (final_k>>3) == 1 )
+1296   1              pll_divider =  pll_divider - pll_divider_k ;
+1297   1          else
+1298   1              pll_divider =  pll_divider + pll_divider_k ;
+1299   1      
+1300   1      
+1301   1          if ((sum_i_now>>26) ==1)                        // delta 2's
+1302   1              delta = 0x400000 -  delta;       
+1303   1        //  else
+1304   1        //      delta = delta;
+1305   1      
+1306   1              
+1307   1          if ((sum_i_now>>26) ==1)
+1308   1              pll_divider = pll_divider - delta ;
+1309   1          else
+1310   1              pll_divider = pll_divider + delta ;
+1311   1      
+1312   1      
+1313   1          usPllDivider =  pll_divider / usClock ;
+1314   1          usPllDividerRem =  ((pll_divider % usClock) <<12) / usClock ;
+1315   1      
+1316   1          usIHFreqApllFast =  ((((DWORD)stModeInfo.IHFreq * (pll_divider>>11)) / pll_divider_old) + 2) >> 2;
+1317   1        
+1318   1      }
+1319          //--------------------------------------------------
+1320          // Description  : Set ADC clock (IHTotal)
+1321          // Input Value  : usClock   --> Target ADC clock
+1322          // Output Value : None
+1323          //--------------------------------------------------
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 23  
+
+1324          void CAdjustAdcClock_OSD(WORD usClock)
+1325          {
+1326   1          DWORD delta, pll_divider;
+1327   1          BYTE mcode;
+1328   1          WORD pcode;
+1329   1          SBYTE STemp ;
+1330   1          CScalerPageSelect(_PAGE1);
+1331   1      #if(_APLL_FAST_LOCK)
+1332   1          //set the FAST PLL CONTROL
+1333   1          CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT5 | _BIT1), (_BIT5 | _BIT1));
+1334   1      #endif
+1335   1          pll_divider = ((usPllDivider * usClock)) + ((usPllDividerRem * usClock)>>12);
+1336   1          mcode = pll_divider >> 26;
+1337   1          STemp = (pll_divider>>22) & 0x0F;
+1338   1          if(STemp>7)
+1339   1          {
+1340   2              mcode +=1;
+1341   2              STemp -= 16;
+1342   2          }
+1343   1          else if(STemp<(-8))  // Always False
+1344   1          {
+1345   2              mcode -=1;
+1346   2              STemp += 16;
+1347   2          }
+1348   1          delta = pll_divider & 0x003FFFFF;
+1349   1          CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+1350   1          CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+1351   1          CScalerSetByte(_P1_PLL_M_AC, (mcode - 3)); 
+1352   1          CScalerSetBit(_P1_PLL_N_AD, 0x0f, (((STemp & 0x0f) << 4) | (_APLL_N_CODE - 2)));
+1353   1          pData[0] = 0x00;
+1354   1          pData[1] = (BYTE)((delta >> 16) & 0x0000003f);
+1355   1          pData[2] = (BYTE)((delta >> 8)  & 0x000000ff);
+1356   1          pData[3] = (BYTE)((delta << 0)  & 0x000000ff);
+1357   1          CScalerWrite(_P1_FAST_PLL_ISUM_AB, 4, pData, _NON_AUTOINC);
+1358   1      /****************************************************************************
+1359   1          PE Calibration Function  // Added by whhsiao 20080213
+1360   1      ****************************************************************************/
+1361   1          CScalerSetByte(0xA4, 0x80);
+1362   1          CTimerDelayXms(1);
+1363   1          CScalerRead(0xA4, 2, pData, _AUTOINC);
+1364   1          usPEValue =  ( ((pData[0]&0x0F)<<8) | pData[1] );
+1365   1          usPEValue = 1000000/(usPEValue*(_RTD_XTAL/1000));   // unit : ps
+1366   1      /****************************************************************************
+1367   1      
+1368   1          Formula :
+1369   1      
+1370   1            I_gain       Ths                    PE(UNIT)                   1
+1371   1          --------- x  ------- = ------------------------------------ x  -----
+1372   1             2^22        Tbck        Txclk x 16N/(16M +- K) x 1/16         8
+1373   1      
+1374   1            I_gain         Ths                      PE(UNIT)                   1
+1375   1          --------- x  ----------- = ------------------------------------ x  -----
+1376   1             2^22       Tclk x N         Txclk x 16N/(16M +- K) x 1/16         8
+1377   1      
+1378   1                     2^22 x PE_U x (16M +- K)        1
+1379   1          I_gain = ----------------------------- x -----
+1380   1                               Ths                   n
+1381   1      
+1382   1              2^22 x PE_U x (16M +- K)        1
+1383   1          = ----------------------------- x -----
+1384   1                        Ths                   n
+1385   1      
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 24  
+
+1386   1          = IHF x 2^22 x PE_U x (16M +- K) x 2^(-n)
+1387   1      
+1388   1      ****************************************************************************/
+1389   1          // (M + K/16) = pllclock / 1024
+1390   1          // 16M + K = 16 * pllclock / 1024
+1391   1          // 2^19 * 2^4 / 2^10 = 2^13
+1392   1          // _PE_VALUE UNIT is ps, so result has to multiply 10^(-12)
+1393   1          // stModeInfo.IHFreq/10 UNIT is KHz, so result has to multiply 10^2
+1394   1          pll_divider = (usPEValue * (usIHFreqApllFast/10)) * (pll_divider/(DWORD)100000);  //yc 20080306 
+1395   1          pll_divider = (pll_divider/10000) >> 9;    // 
+1396   1          //pll_divider = (pll_divider/10000) >> 8;    // 
+1397   1          pll_divider &= 0x00007fff;
+1398   1          CScalerSetByte(_P1_I_CODE_M_A1,(BYTE)(pll_divider >> 8));
+1399   1          CScalerSetByte(_P1_I_CODE_L_A2, (BYTE)pll_divider);
+1400   1          // Set the P code
+1401   1          pcode = (WORD) ((63*pll_divider * (_RTD_XTAL/_APLL_N_CODE) / (usIHFreqApllFast/10) ) >> 7); // Total G
+             -ain = 65/512
+1402   1          STemp=1;
+1403   1          if(pcode > 255)
+1404   1          {
+1405   2              for(pData[0] = 9; pData[0] < 15; pData[0]++)
+1406   2              {
+1407   3                  if((pcode >> pData[0]) == 0)
+1408   3                      break;
+1409   3              }
+1410   2              switch(pData[0]-9)//yc 20080225 
+1411   2              {
+1412   3                  case 0:
+1413   3                      pcode = pcode / _G_VALUE_DIVIDER_0;
+1414   3                      break;
+1415   3                  case 1:
+1416   3                      pcode = pcode / _G_VALUE_DIVIDER_1;
+1417   3                      break;
+1418   3                  case 2:
+1419   3                      pcode = pcode / _G_VALUE_DIVIDER_2;
+1420   3                      break;
+1421   3                  case 3:
+1422   3                      pcode = pcode / _G_VALUE_DIVIDER_3;
+1423   3                      break;
+1424   3                  case 4:
+1425   3                      pcode = pcode / _G_VALUE_DIVIDER_4;
+1426   3                      break;
+1427   3                  case 5:
+1428   3                      pcode = pcode / _G_VALUE_DIVIDER_5;
+1429   3                      break;
+1430   3                  default:
+1431   3                      break;
+1432   3              }
+1433   2              STemp = pData[0] - 7;
+1434   2          }
+1435   1          if(pcode==0x00)
+1436   1              pcode = 0x01;
+1437   1          CScalerSetByte(_P1_P_CODE_MAPPING_METHOD_B6, STemp << 2);
+1438   1          CScalerSetByte(_P1_DDS_MIX_2_B9, 0xFF); //set the P_code_max
+1439   1          CScalerSetByte(_P1_DDS_MIX_3_BA, 0xFF);
+1440   1          CScalerSetByte(_P1_P_CODE_A3, (BYTE)pcode); 
+1441   1      #if(_APLL_FAST_LOCK) //yc 20080225
+1442   1          //CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT6 | _BIT5 | _BIT4), (_BIT6 | _BIT5 | _BIT4));
+1443   1          CAdjustDisableWatchDog(_WD_APLL_NONLOCK);
+1444   1          CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT6 | _BIT5), (_BIT6 | _BIT5));
+1445   1          CTimerDelayXms(100); 
+1446   1          CAdjustEnableWatchDog(_WD_APLL_NONLOCK);
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 25  
+
+1447   1      #else
+                  //Enable Double buffer write in PLL M/N K¡BPLLDIV¡BDDS SUM_I
+                  CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~_BIT4, _BIT4);
+              #endif
+1451   1          CMiscClearStatusRegister();
+1452   1      }
+1453          
+1454          // Eric 0617 add for YPbPr
+1455          void CAdjustAdcClockYPbPr(WORD usClock)
+1456          {
+1457   1          //#define _PE_VALUE   175 // Unit: ps
+1458   1          DWORD pllclock, icode, SUM_I;
+1459   1          BYTE mcode;
+1460   1          SBYTE kcode,g_value = 1;
+1461   1          WORD delta, pcode;
+1462   1          static BYTE vco_divider = 2;
+1463   1          BYTE g_value_divider[6] = {4, 16, 64, 128, 256, 512};
+1464   1      #if (_APLL_FAST_LOCK)
+1465   1          DWORD temp2662;
+1466   1      #endif
+1467   1      
+1468   1      
+1469   1          if(bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+1470   1              CAdjustEnableWatchDog(_WD_DV_TIMEOUT);
+1471   1          CScalerPageSelect(_PAGE1);
+1472   1      
+1473   1      #if(_APLL_FAST_LOCK)
+1474   1          //set the FAST PLL CONTROL
+1475   1          CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT5 | _BIT1), (_BIT5 | _BIT1));
+1476   1      #endif
+1477   1          /********************************************************
+1478   1          Fvco : Frequency of APLL
+1479   1          Fxtal : Frequency of Crystal
+1480   1          IHF : Input Horizontal Frequency
+1481   1          usClock : Divider number of input clock
+1482   1          stModeInfo.IHFreq = 10 * IHF(in KHz)
+1483   1          _RTD_XTAl : Defined crystal clock unit in KHz
+1484   1      
+1485   1          Fvco = Fxtal*(M + K/16)/N1 = IHF * usClock * vco_divider
+1486   1          Assum N1 = 2
+1487   1          (M + K/16) = IHF * usClock * N1 * vco_divider / Fxtal
+1488   1          stModeInfo.IHFreq UINT in 100Hz
+1489   1          *********************************************************/
+1490   1      
+1491   1          //ADC sampling clock, UNIT in KHz
+1492   1          pllclock = (DWORD)stModeInfo.IHFreq * usClock / 10;
+1493   1      
+1494   1          vco_divider = pllclock < 100000 ? 4 : 2;
+1495   1      
+1496   1          //Get (M + K/16) * 1024
+1497   1          pllclock  = ((((pllclock * _APLL_N_CODE * vco_divider) << 4 )/(DWORD)(_RTD_XTAL)) << 6);
+1498   1      
+1499   1          CScalerPageSelect(_PAGE1);
+1500   1          CScalerSetByte(_P1_PLL_DIV_CTRL_A0, 0x08);
+1501   1      //  CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x24);  //Ming-Yen
+1502   1      //  CScalerSetByte(_P1_PE_TRACKING_METHOD_B7, 0x02); //Ming-Yen
+1503   1      //  CScalerSetByte(_P1_DDS_MIX_1_B8, 0x0c);   //Ming-Yen
+1504   1          CScalerSetByte(_P1_DDS_MIX_2_B9, 0xff);
+1505   1          CScalerSetByte(_P1_PLL_CRNT_AE, 0x63);
+1506   1          
+1507   1          //CScalerSetByte(_P1_PLL_WD_AF, 0x08);
+1508   1      
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 26  
+
+1509   1          CScalerSetBit(_P1_PLLDIV_H_B1, ~(_BIT6 | _BIT5 | _BIT4), (vco_divider == 2) ? (_BIT6 | _BIT5) : (_BIT6
+             - | _BIT5 | _BIT4));
+1510   1      
+1511   1             
+1512   1      
+1513   1          //Set the divide number
+1514   1          CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+1515   1          CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+1516   1      
+1517   1      
+1518   1      ////////////////////////////////////////
+1519   1            CAdjustGetAPLLSetting(usClock);
+1520   1      ////////////////////////////////////////
+1521   1      
+1522   1      
+1523   1          //Set N code
+1524   1          CScalerSetBit(_P1_PLL_N_AD, 0xf8, ((_APLL_N_CODE - 2) & 0x07));
+1525   1      
+1526   1          //Get M, K code, M + K/16 = pllclock / 1024
+1527   1          mcode = pllclock >> 10; //M is the integer part
+1528   1          delta = (DWORD)pllclock - ((DWORD)mcode << 10);
+1529   1      
+1530   1          //K is the fraction part quantized by 16
+1531   1          kcode = (delta) >> 6; 
+1532   1      
+1533   1      #if(_APLL_FAST_LOCK)
+1534   1          //SUM_I is the truncated part by calculation quantized by 1024
+1535   1          SUM_I = ((DWORD)delta << 4) - ((DWORD)kcode << 10); 
+1536   1      #endif  
+1537   1      
+1538   1          //K is range from -8 ~ 7
+1539   1          if(kcode>7)
+1540   1          {
+1541   2              mcode +=1;
+1542   2              kcode -= 16;
+1543   2          }
+1544   1          else if(kcode<(-8))
+1545   1          {
+1546   2              mcode -=1;
+1547   2              kcode += 16;
+1548   2          }
+1549   1      
+1550   1          //set M, N, K code
+1551   1          CScalerSetByte(_P1_PLL_M_AC, (mcode - 3)); 
+1552   1          CScalerSetBit(_P1_PLL_N_AD, 0x0f, (((kcode & 0x0f) << 4) | (_APLL_N_CODE - 2)));
+1553   1      
+1554   1      #if (_APLL_FAST_LOCK)
+1555   1          SUM_I = SUM_I << 12; // over flow need to modify
+1556   1          //set SUM_I
+1557   1          temp2662 = SUM_I & 0x07ffffff;
+1558   1          pData[0] = (BYTE)((temp2662 >>24) & 0x000000ff);
+1559   1          pData[1] = (BYTE)((temp2662 >>16) & 0x000000ff);
+1560   1          pData[2] = (BYTE)((temp2662 >>8) & 0x000000ff);
+1561   1          pData[3] = (BYTE)(temp2662 & 0x000000ff);
+1562   1          CScalerWrite(_P1_FAST_PLL_ISUM_AB, 4, pData, _NON_AUTOINC);
+1563   1      #endif
+1564   1      
+1565   1      
+1566   1      /****************************************************************************
+1567   1      
+1568   1          Formula :
+1569   1      
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 27  
+
+1570   1            I_gain       Ths                    PE(UNIT)                   1
+1571   1          --------- x  ------- = ------------------------------------ x  -----
+1572   1             2^22        Tbck        Txclk x 16N/(16M +- K) x 1/16         8
+1573   1      
+1574   1            I_gain         Ths                      PE(UNIT)                   1
+1575   1          --------- x  ----------- = ------------------------------------ x  -----
+1576   1             2^22       Tclk x N         Txclk x 16N/(16M +- K) x 1/16         8
+1577   1      
+1578   1                     2^22 x PE_U x (16M +- K)        1
+1579   1          I_gain = ----------------------------- x -----
+1580   1                               Ths                   8
+1581   1      
+1582   1              2^19 x PE_U x (16M +- K)
+1583   1          = -----------------------------
+1584   1                        Ths
+1585   1      
+1586   1          = IHF x 2^19 x PE_U x (16M +- K)
+1587   1      
+1588   1      ****************************************************************************/
+1589   1      
+1590   1          // (M + K/16) = pllclock / 1024
+1591   1          // 16M + K = 16 * pllclock / 1024
+1592   1          // 2^19 * 2^4 / 2^10 = 2^13
+1593   1          // _PE_VALUE UNIT is ps, so result has to multiply 10^(-12)
+1594   1          // stModeInfo.IHFreq/10 UNIT is KHz, so result has to multiply 10^2
+1595   1      
+1596   1          icode = (DWORD)((stModeInfo.IHFreq) * 120/*usPEValue*/ * pllclock)/(DWORD)1220702;
+1597   1          icode &= 0x00007fff;
+1598   1      
+1599   1          CScalerSetByte(_P1_I_CODE_M_A1,(BYTE)(icode >> 8));
+1600   1          CScalerSetByte(_P1_I_CODE_L_A2, (BYTE)icode);
+1601   1      
+1602   1          // Set the P code
+1603   1          pcode = (7 * icode * _RTD_XTAL / stModeInfo.IHFreq /_APLL_N_CODE) >> 7;
+1604   1          
+1605   1          if(pcode > 255)
+1606   1          {
+1607   2              for(pData[0] = 9; pData[0] < 15; pData[0]++)
+1608   2              {
+1609   3                  if((pcode >> pData[0]) == 0)
+1610   3                      break;
+1611   3              }
+1612   2              pcode = pcode / g_value_divider[(pData[0] - 9)];
+1613   2              g_value = pData[0] - 7;
+1614   2          }
+1615   1      
+1616   1          CScalerSetByte(_P1_P_CODE_MAPPING_METHOD_B6, g_value << 2);
+1617   1          CScalerSetByte(_P1_DDS_MIX_2_B9, 0x05); //set the P_code_max
+1618   1          CScalerSetByte(_P1_DDS_MIX_3_BA, 0x1e);
+1619   1          CScalerSetByte(_P1_P_CODE_A3, (BYTE)pcode);
+1620   1      
+1621   1      #if (_APLL_FAST_LOCK)
+1622   1          //CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x60);
+1623   1          CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT6 | _BIT5 | _BIT3), (_BIT6 | _BIT5 | _BIT3));
+1624   1      #else
+                  //Enable Double buffer write in PLL M/N K¡BPLLDIV¡BDDS SUM_I
+                  CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~_BIT4, _BIT4);
+              #endif
+1628   1      
+1629   1          CScalerSetByte(_P1_PLLPHASE_CTRL1_B4, 0x00);
+1630   1      
+1631   1          CTimerWaitForEvent(_EVENT_IEN_STOP);
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 28  
+
+1632   1          CTimerWaitForEvent(_EVENT_IEN_STOP);
+1633   1      
+1634   1          pData[0] = 32;
+1635   1          do
+1636   1          {
+1637   2              CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+1638   2              CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+1639   2              CScalerSetByte(_P1_PLLPHASE_CTRL1_B4, 0x00);
+1640   2      
+1641   2           //   CTimerWaitForEvent(_EVENT_IEN_STOP);
+1642   2             // CTimerWaitForEvent(_EVENT_IEN_STOP);
+1643   2      
+1644   2          }while(CAdjustGetAPLLSetting(usClock) && --pData[0]);
+1645   1      
+1646   1          CPowerADCAPLLOn();
+1647   1          //DebugPrintf("\n CPowerADCAPLLOn ... ",0x20);
+1648   1          
+1649   1          CTimerWaitForEvent(_EVENT_IEN_STOP);
+1650   1          CTimerWaitForEvent(_EVENT_IEN_STOP);
+1651   1          CTimerWaitForEvent(_EVENT_IEN_STOP);
+1652   1              
+1653   1          CAdjustGetAPLLSetting(usClock);
+1654   1              
+1655   1          CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x00);
+1656   1              
+1657   1          CMiscClearStatusRegister();
+1658   1              
+1659   1          if (bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+1660   1             CAdjustEnableWatchDog(_WD_ALL);
+1661   1      }
+1662          
+1663          #else
+              
+              //--------------------------------------------------
+              // Description  : Set ADC clock (IHTotal)
+              // Input Value  : usClock   --> Target ADC clock
+              // Output Value : None
+              //--------------------------------------------------
+              void CAdjustAdcClock(WORD usClock)
+              {
+                  //#define _PE_VALUE   175 // Unit: ps
+                  DWORD pllclock, icode, SUM_I;
+                  BYTE mcode;
+                  SBYTE kcode,g_value = 1;
+                  WORD delta, pcode;
+                  static BYTE vco_divider = 2;
+                  BYTE g_value_divider[6] = {4, 16, 64, 128, 256, 512};
+              #if (_APLL_FAST_LOCK)
+                  DWORD temp2662;
+              #endif
+              
+              
+                  if(bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+                      CAdjustEnableWatchDog(_WD_DV_TIMEOUT);
+                  CScalerPageSelect(_PAGE1);
+              
+              #if(_APLL_FAST_LOCK)
+                  //set the FAST PLL CONTROL
+                  CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT5 | _BIT1), (_BIT5 | _BIT1));
+              #endif
+                  /********************************************************
+                  Fvco : Frequency of APLL
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 29  
+
+                  Fxtal : Frequency of Crystal
+                  IHF : Input Horizontal Frequency
+                  usClock : Divider number of input clock
+                  stModeInfo.IHFreq = 10 * IHF(in KHz)
+                  _RTD_XTAl : Defined crystal clock unit in KHz
+              
+                  Fvco = Fxtal*(M + K/16)/N1 = IHF * usClock * vco_divider
+                  Assum N1 = 2
+                  (M + K/16) = IHF * usClock * N1 * vco_divider / Fxtal
+                  stModeInfo.IHFreq UINT in 100Hz
+                  *********************************************************/
+              
+                  //ADC sampling clock, UNIT in KHz
+                  pllclock = (DWORD)stModeInfo.IHFreq * usClock / 10;
+              
+                  vco_divider = pllclock < 100000 ? 4 : 2;
+              
+                  //Get (M + K/16) * 1024
+                  pllclock  = ((((pllclock * _APLL_N_CODE * vco_divider) << 4 )/(DWORD)(_RTD_XTAL)) << 6);
+              
+                  CScalerPageSelect(_PAGE1);
+                  CScalerSetByte(_P1_PLL_DIV_CTRL_A0, 0x08);
+              //  CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x24);  //Ming-Yen
+              //  CScalerSetByte(_P1_PE_TRACKING_METHOD_B7, 0x02); //Ming-Yen
+              //  CScalerSetByte(_P1_DDS_MIX_1_B8, 0x0c);   //Ming-Yen
+                  CScalerSetByte(_P1_DDS_MIX_2_B9, 0xff);
+                  CScalerSetByte(_P1_PLL_CRNT_AE, 0x63);
+                  
+                  //CScalerSetByte(_P1_PLL_WD_AF, 0x08);
+              
+                  CScalerSetBit(_P1_PLLDIV_H_B1, ~(_BIT6 | _BIT5 | _BIT4), (vco_divider == 2) ? (_BIT6 | _BIT5) : (_BIT6
+             - | _BIT5 | _BIT4));
+              
+                     
+              
+                  //Set the divide number
+                  CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+                  CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+              
+              
+              ////////////////////////////////////////
+                    CAdjustGetAPLLSetting(usClock);
+              ////////////////////////////////////////
+              
+              
+                  //Set N code
+                  CScalerSetBit(_P1_PLL_N_AD, 0xf8, ((_APLL_N_CODE - 2) & 0x07));
+              
+                  //Get M, K code, M + K/16 = pllclock / 1024
+                  mcode = pllclock >> 10; //M is the integer part
+                  delta = (DWORD)pllclock - ((DWORD)mcode << 10);
+              
+                  //K is the fraction part quantized by 16
+                  kcode = (delta) >> 6; 
+              
+              #if(_APLL_FAST_LOCK)
+                  //SUM_I is the truncated part by calculation quantized by 1024
+                  SUM_I = ((DWORD)delta << 4) - ((DWORD)kcode << 10); 
+              #endif  
+              
+                  //K is range from -8 ~ 7
+                  if(kcode>7)
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 30  
+
+                  {
+                      mcode +=1;
+                      kcode -= 16;
+                  }
+                  else if(kcode<(-8))
+                  {
+                      mcode -=1;
+                      kcode += 16;
+                  }
+              
+                  //set M, N, K code
+                  CScalerSetByte(_P1_PLL_M_AC, (mcode - 3)); 
+                  CScalerSetBit(_P1_PLL_N_AD, 0x0f, (((kcode & 0x0f) << 4) | (_APLL_N_CODE - 2)));
+              
+              #if (_APLL_FAST_LOCK)
+                  SUM_I = SUM_I << 12; // over flow need to modify
+                  //set SUM_I
+                  temp2662 = SUM_I & 0x07ffffff;
+                  pData[0] = (BYTE)((temp2662 >>24) & 0x000000ff);
+                  pData[1] = (BYTE)((temp2662 >>16) & 0x000000ff);
+                  pData[2] = (BYTE)((temp2662 >>8) & 0x000000ff);
+                  pData[3] = (BYTE)(temp2662 & 0x000000ff);
+                  CScalerWrite(_P1_FAST_PLL_ISUM_AB, 4, pData, _NON_AUTOINC);
+              #endif
+              
+              
+              /****************************************************************************
+              
+                  Formula :
+              
+                    I_gain       Ths                    PE(UNIT)                   1
+                  --------- x  ------- = ------------------------------------ x  -----
+                     2^22        Tbck        Txclk x 16N/(16M +- K) x 1/16         8
+              
+                    I_gain         Ths                      PE(UNIT)                   1
+                  --------- x  ----------- = ------------------------------------ x  -----
+                     2^22       Tclk x N         Txclk x 16N/(16M +- K) x 1/16         8
+              
+                             2^22 x PE_U x (16M +- K)        1
+                  I_gain = ----------------------------- x -----
+                                       Ths                   8
+              
+                      2^19 x PE_U x (16M +- K)
+                  = -----------------------------
+                                Ths
+              
+                  = IHF x 2^19 x PE_U x (16M +- K)
+              
+              ****************************************************************************/
+              
+                  // (M + K/16) = pllclock / 1024
+                  // 16M + K = 16 * pllclock / 1024
+                  // 2^19 * 2^4 / 2^10 = 2^13
+                  // _PE_VALUE UNIT is ps, so result has to multiply 10^(-12)
+                  // stModeInfo.IHFreq/10 UNIT is KHz, so result has to multiply 10^2
+              
+                  icode = (DWORD)((stModeInfo.IHFreq) * 120/*usPEValue*/ * pllclock)/(DWORD)1220702;
+                  icode &= 0x00007fff;
+              
+                  CScalerSetByte(_P1_I_CODE_M_A1,(BYTE)(icode >> 8));
+                  CScalerSetByte(_P1_I_CODE_L_A2, (BYTE)icode);
+              
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 31  
+
+                  // Set the P code
+                  pcode = (7 * icode * _RTD_XTAL / stModeInfo.IHFreq /_APLL_N_CODE) >> 7;
+                  
+                  if(pcode > 255)
+                  {
+                      for(pData[0] = 9; pData[0] < 15; pData[0]++)
+                      {
+                          if((pcode >> pData[0]) == 0)
+                              break;
+                      }
+                      pcode = pcode / g_value_divider[(pData[0] - 9)];
+                      g_value = pData[0] - 7;
+                  }
+              
+                  CScalerSetByte(_P1_P_CODE_MAPPING_METHOD_B6, g_value << 2);
+                  CScalerSetByte(_P1_DDS_MIX_2_B9, 0x05); //set the P_code_max
+                  CScalerSetByte(_P1_DDS_MIX_3_BA, 0x1e);
+                  CScalerSetByte(_P1_P_CODE_A3, (BYTE)pcode);
+              
+              #if (_APLL_FAST_LOCK)
+                  //CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x60);
+                  CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~(_BIT6 | _BIT5 | _BIT3), (_BIT6 | _BIT5 | _BIT3));
+              #else
+                  //Enable Double buffer write in PLL M/N K¡BPLLDIV¡BDDS SUM_I
+                  CScalerSetBit(_P1_FAST_PLL_CTRL_AA, ~_BIT4, _BIT4);
+              #endif
+              
+                  CScalerSetByte(_P1_PLLPHASE_CTRL1_B4, 0x00);
+              
+                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+              
+                  pData[0] = 32;
+                  do
+                  {
+                      CScalerSetBit(_P1_PLLDIV_H_B1, 0xf0, (BYTE)(((usClock - 1) >> 8) & 0x0f));
+                      CScalerSetByte(_P1_PLLDIV_L_B2, (BYTE)((usClock - 1) & 0x00ff));
+                      CScalerSetByte(_P1_PLLPHASE_CTRL1_B4, 0x00);
+              
+                   //   CTimerWaitForEvent(_EVENT_IEN_STOP);
+                     // CTimerWaitForEvent(_EVENT_IEN_STOP);
+              
+                  }while(CAdjustGetAPLLSetting(usClock) && --pData[0]);
+              
+                  CPowerADCAPLLOn();
+                  //DebugPrintf("\n CPowerADCAPLLOn ... ",0x20);
+                  
+                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+                  CTimerWaitForEvent(_EVENT_IEN_STOP);
+                      
+                  CAdjustGetAPLLSetting(usClock);
+                      
+                  CScalerSetByte(_P1_FAST_PLL_CTRL_AA, 0x00);
+                      
+                  CMiscClearStatusRegister();
+                      
+                  if (bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+                     CAdjustEnableWatchDog(_WD_ALL);
+              }
+              
+              #endif
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 32  
+
+1879          
+1880          
+1881          //--------------------------------------------------
+1882          // Description  : Get APLL Setting
+1883          // Input Value  : usClock   --> Target ADC clock
+1884          // Output Value : None
+1885          //--------------------------------------------------
+1886          BYTE CAdjustGetAPLLSetting(WORD usClock)
+1887          {
+1888   1          BYTE ucTemp[2];
+1889   1      
+1890   1          usClock -= 1;
+1891   1          
+1892   1          CScalerPageSelect(_PAGE1);
+1893   1          CScalerRead(_P1_PLLDIV_H_B1, 2, ucTemp, _AUTOINC);
+1894   1      
+1895   1          ucTemp[0] &= 0x0f;
+1896   1      
+1897   1          if((ucTemp[0] != (BYTE)(usClock >> 8)) || (ucTemp[1] != (BYTE)(usClock & 0x00ff)))
+1898   1          {
+1899   2              return _TRUE;
+1900   2          }
+1901   1          else
+1902   1          {
+1903   2              return _FALSE;
+1904   2          }
+1905   1      }
+1906          
+1907          
+1908          //--------------------------------------------------
+1909          // Description  : Set phase
+1910          // Input Value  : ucPhase   --> Target phase, ucPhase = N, N = 0 ~ 63
+1911          // Output Value : None
+1912          //--------------------------------------------------
+1913          void CAdjustPhase(BYTE ucPhase)
+1914          {
+1915   1      #if(1)
+1916   1          BYTE ctrl, select;
+1917   1          //DebugPrintf("\n CAdjustPhase %c",'!');
+1918   1          
+1919   1          if (bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+1920   1             CAdjustEnableWatchDog(_WD_DV_TIMEOUT_APLL_NONLOCK);
+1921   1      
+1922   1          //Ida added for change range from 0-63 to 0-100
+1923   1           ucPhase = ucPhase & 0x3f;
+1924   1          //ucPhase = ((WORD)(ucPhase*64)/101) & 0x3f;
+1925   1      
+1926   1          // Code below is to select stable HSYNC latch edge.
+1927   1          // There is about 2.025ns delay for RTD2553V between input clock into ADC and output from ADC.
+1928   1          // Calculating the corresponding phase delay for 2.025ns
+1929   1          // Original Formula :
+1930   1          // select = 64 * 2.025 * ulRate / 1000000;
+1931   1      
+1932   1          //select = (DWORD)_RTD_XTAL * stModeInfo.IHTotal / stModeInfo.IHCount * 130 / 1000000;
+1933   1          select = (DWORD)_RTD_XTAL * stModeInfo.IHTotal / stModeInfo.IHCount * 389 / 1000000;
+1934   1      
+1935   1          select = (select <= 64) ? (64 - select) : (128 - select);
+1936   1      
+1937   1          // Calculate the absolute value from the selected phase to transition
+1938   1          pData[0]    = (ucPhase >= select) ? ucPhase - select : select - ucPhase;
+1939   1          ctrl        = (pData[0] > 12 && pData[0] < 52) ? 0x00 : 0x01;
+1940   1      
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 33  
+
+1941   1          if((stModeInfo.IHStartPos < stModeUserData.HPosition) && ((stModeUserData.HPosition - stModeInfo.IHSta
+             -rtPos) > ucHStartBias))
+1942   1              stModeUserData.HPosition = stModeInfo.IHStartPos + ucHStartBias;
+1943   1      
+1944   1          if((stModeInfo.IHStartPos > stModeUserData.HPosition) && ((stModeInfo.IHStartPos - stModeUserData.HPos
+             -ition) > ucHStartBias))
+1945   1              stModeUserData.HPosition = stModeInfo.IHStartPos - ucHStartBias;
+1946   1      
+1947   1      //    pData[0]    = ucHStartBias + stModeInfo.IHStartPos - stModeUserData.HPosition  + _PROGRAM_HDELAY;
+1948   1          ((WORD *)pData)[0]  = ucHStartBias + stModeInfo.IHStartPos - stModeUserData.HPosition  + _PROGRAM_HDEL
+             -AY;
+1949   1      
+1950   1      
+1951   1          // Compensate the H position shift due to the phase select
+1952   1          if (select > 12)
+1953   1              select  = ((ucPhase + 12) < select) ? (((WORD *)pData)[0] - 1) : ((WORD *)pData)[0];
+1954   1          else
+1955   1              select  = (ucPhase < (select + 52)) ? (((WORD *)pData)[0] - 1) : ((WORD *)pData)[0];
+1956   1      
+1957   1          CScalerPageSelect(_PAGE1);
+1958   1      
+1959   1          CScalerSetBit(_P1_PLLDIV_H_B1, ~_BIT6, _BIT6);
+1960   1          if(((DWORD)stModeInfo.IHFreq * stModeInfo.IHTotal / 1000) < 530)
+1961   1          {
+1962   2              CScalerSetBit(_P1_PLLPHASE_CTRL1_B4, 0x80, ucPhase * 2);           // Set phase
+1963   2          }
+1964   1          else
+1965   1          {
+1966   2              CScalerSetBit(_P1_PLLPHASE_CTRL1_B4, 0x80, ucPhase);               // Set phase
+1967   2          }
+1968   1      
+1969   1          CAdjustIHSDelay(select);                                        // Compensate IHS delay
+1970   1          CScalerSetBit(_VGIP_DELAY_CTRL_12, ~_BIT3, (ctrl << 3));        // Select a correct edge to latch the 
+             -stable data
+1971   1          
+1972   1          CMiscApplyDoubleBuffer();
+1973   1              
+1974   1          CMiscClearStatusRegister();
+1975   1          if (bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+1976   1             CAdjustEnableWatchDog(_WD_ALL);
+1977   1      #else
+                  BYTE ctrl, select;
+                  BYTE pllclock;
+                  //DebugPrintf("\n CAdjustPhase %c",'!');
+                  
+                  if(bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)  // for Aspect ratio,hill 20070515  
+                  CAdjustEnableWatchDog(_WD_DV_TIMEOUT);
+                  
+                  //Ida added for change range from 0-63 to 0-100
+                  ucPhase = ucPhase & 0x3f;
+               
+                  pllclock = (DWORD)stModeInfo.IHFreq * stModeUserData.Clock / 10000;
+                  if(pllclock < 113)
+                      select = (138+pllclock)/4;
+                  else
+                      select = (pllclock-113)/3;
+               
+               
+                  // Calculate the absolute value from the selected phase to transition
+                  pData[0]    = (ucPhase >= select) ? ucPhase - select : select - ucPhase;
+                  ctrl = (pData[0] > 12 && pData[0] < 52) ? 0x00 : 0x01;
+               
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 34  
+
+                  if((stModeInfo.IHStartPos < stModeUserData.HPosition) && ((stModeUserData.HPosition - stModeInfo.IHSta
+             -rtPos) > ucHStartBias))
+                      stModeUserData.HPosition = stModeInfo.IHStartPos + ucHStartBias;
+               
+                  if((stModeInfo.IHStartPos > stModeUserData.HPosition) && ((stModeInfo.IHStartPos - stModeUserData.HPos
+             -ition) > ucHStartBias))
+                      stModeUserData.HPosition = stModeInfo.IHStartPos - ucHStartBias;
+               
+              //    pData[0]    = ucHStartBias + stModeInfo.IHStartPos - stModeUserData.HPosition  + _PROGRAM_HDELAY;
+                  ((WORD *)pData)[0]  = ucHStartBias + stModeInfo.IHStartPos - stModeUserData.HPosition  + _PROGRAM_HDEL
+             -AY;
+               
+              
+                  // Compensate the H position shift due to the phase select
+                  if (select > 12)
+                      select  = ((ucPhase + 12) < select) ? (((WORD *)pData)[0] - 1) : ((WORD *)pData)[0];
+                  else
+                      select  = (ucPhase < (select + 52)) ? (((WORD *)pData)[0] - 1) : ((WORD *)pData)[0];
+                  CScalerPageSelect(_PAGE1);
+               
+                  CScalerSetBit(_P1_PLLDIV_H_B1, ~_BIT6, _BIT6);
+               
+                  if((bit)CScalerGetBit(_P1_PLLDIV_H_B1, _BIT4))
+                  {
+                      CScalerSetBit(_P1_PLLPHASE_CTRL1_B4, 0x80, ucPhase * 2);           // Set phase
+                  }
+                  else
+                  {
+                      CScalerSetBit(_P1_PLLPHASE_CTRL1_B4, 0x80, ucPhase);               // Set phase
+                  }
+               
+                  CAdjustIHSDelay(select);                                        // Compensate IHS delay
+                  CScalerSetBit(_VGIP_DELAY_CTRL_12, ~_BIT3, (ctrl << 3));        // Select a correct edge to latch the 
+             -stable data
+                  
+                  CMiscApplyDoubleBuffer();
+                
+                  CMiscClearStatusRegister();
+                
+                  if(bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)  // for Aspect ratio,hill 20070515  
+                      CAdjustEnableWatchDog(_WD_DV_TIMEOUT | _WD_FRAMESYNC);
+              #endif
+2037   1      }
+2038          
+2039          //--------------------------------------------------
+2040          // Description  : Set H Position
+2041          // Input Value  : None
+2042          // Output Value : None
+2043          //--------------------------------------------------
+2044          void CAdjustHPosition(void)
+2045          {
+2046   1          // Update IHS delay according to phase
+2047   1          CAdjustPhase(stModeUserData.Phase);
+2048   1      }
+2049          
+2050          //--------------------------------------------------
+2051          // Description  : Set V Position
+2052          // Input Value  : None
+2053          // Output Value : None
+2054          //--------------------------------------------------
+2055          void CAdjustVPosition(void)
+2056          {
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 35  
+
+2057   1          if (bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+2058   1             CAdjustEnableWatchDog(_WD_APLL_NONLOCK);
+2059   1      
+2060   1          if((stModeInfo.IVStartPos < stModeUserData.VPosition) && ((stModeUserData.VPosition - stModeInfo.IVSta
+             -rtPos) > ucVStartBias))
+2061   1          {
+2062   2              stModeUserData.VPosition = stModeInfo.IVStartPos + ucVStartBias;
+2063   2          }
+2064   1      
+2065   1      #if(_V_POSITION_DIRECTION == _V_POSITION_METHOD_0)
+2066   1      
+2067   1          CAdjustIVSDelay(ucVStartBias + stModeInfo.IVStartPos - stModeUserData.VPosition + _PROGRAM_VDELAY);
+2068   1      
+2069   1      #endif
+2070   1      
+2071   1      #if(_V_POSITION_DIRECTION == _V_POSITION_METHOD_1)
+              
+                  CAdjustIVSDelay(ucVStartBias - (stModeInfo.IVStartPos - stModeUserData.VPosition) + _PROGRAM_VDELAY);
+              
+              #endif
+2076   1      
+2077   1          CMiscApplyDoubleBuffer();
+2078   1      
+2079   1          CTimerWaitForEvent(_EVENT_DEN_STOP);
+2080   1          CTimerWaitForEvent(_EVENT_DEN_START);
+2081   1      
+2082   1          CMiscClearStatusRegister();
+2083   1          if (bDoAspectRatioFlag == _FALSE && bDoAutoConfigFlag == _FALSE)
+2084   1             CAdjustEnableWatchDog(_WD_ALL);
+2085   1      }
+2086          
+2087          //--------------------------------------------------
+2088          // Description  : Adjust Digital Filter
+2089          // Input Value  : None
+2090          // Output Value : None
+2091          //--------------------------------------------------
+2092          void CAdjustDigitalFilter(BYTE ucAccess, BYTE ucOffset, BYTE ucDiv, BYTE ucEnable)
+2093          {
+2094   1          pData[0] = ((ucAccess & 0x0f) << 4) | 0x00;
+2095   1      
+2096   1          if(ucAccess == _YPBPR_ACCESS_PORT)
+2097   1          {
+2098   2              pData[1] = ((ucOffset & 0x07) << 5) | 0x10;
+2099   2          }
+2100   1          else
+2101   1          {
+2102   2              pData[1] = ((ucEnable & 0x01) << 7) | ((ucOffset & 0x07) << 4) | ((ucDiv & 0x03) << 2);
+2103   2          }
+2104   1      
+2105   1          CScalerWrite(_DIGITAL_FILTER_CTRL_98, 2, pData, _AUTOINC);
+2106   1      
+2107   1          CScalerSetByte(_DIGITAL_FILTER_CTRL_98, 0x00);
+2108   1      }
+2109          
+2110          void CAdjustSetYpbprRhue(void)
+2111          {
+2112   1          CScalerSetBit(_COLOR_CTRL_62,0xc7,0x08);
+2113   1          CScalerWrite(_SRGB_ACCESS_PORT_63, 6, pData, _NON_AUTOINC);
+2114   1      }
+2115          
+2116          void CAdjustSetYpbprGhue(void)
+2117          {
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 36  
+
+2118   1          CScalerSetBit(_COLOR_CTRL_62,0xc7,0x10);
+2119   1          CScalerWrite(_SRGB_ACCESS_PORT_63, 6, pData, _NON_AUTOINC);
+2120   1      }
+2121          
+2122          void CAdjustSetYpbprBhue(void)
+2123          {
+2124   1          CScalerSetBit(_COLOR_CTRL_62,0xc7,0x18);
+2125   1          CScalerWrite(_SRGB_ACCESS_PORT_63, 6, pData, _NON_AUTOINC);
+2126   1      }
+2127          
+2128          
+2129          #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON) || (_YPBPR_SUPPORT == _ON))
+              void CAdjustInterlaceIVS2DVSProtection(void)
+              {
+                  WORD ustemp;
+                  BYTE temp;
+              
+                  CScalerRead(_IPV_ACT_LEN_H_1A, 1, pData, _NON_AUTOINC);
+                  if(pData[0] & 0x20)
+                  {
+                    //  CScalerSetBit(_SCALE_CTRL_32, ~(_BIT7 | _BIT6), _BIT7); //forster modified 061102 
+                      //CScalerSetBit(_VGIP_ODD_CTRL_13, ~_BIT0, _BIT0);
+              
+              //V400 modify
+                      CScalerRead(_IV_DV_DELAY_CLK_ODD_41, LENGTH(1), &temp, _NON_AUTOINC);
+                      ustemp = (WORD)temp * 16 + 16;
+              
+                      if(ustemp > (stModeInfo.IHTotal / 2))
+                      {
+                          ustemp -= stModeInfo.IHTotal / 2;
+                          CScalerSetByte(_IV_DV_DELAY_CLK_EVEN_42, (ustemp - 16) / 16);
+                      }
+                      else
+                      {
+                          CScalerSetByte(_IPV_ACT_STA_L_19, CScalerGetBit(_IPV_ACT_STA_L_19, 0xff) + 1);
+                          ustemp += stModeInfo.IHTotal;
+                          CScalerSetByte(_IV_DV_DELAY_CLK_ODD_41, (ustemp - 16) / 16);
+                          ustemp -= stModeInfo.IHTotal / 2;
+                          CScalerSetByte(_IV_DV_DELAY_CLK_EVEN_42, (ustemp - 16) / 16);
+                      } 
+              //V400 modify  
+                      CScalerSetBit(_FS_DELAY_FINE_TUNING_43, ~(_BIT1), _BIT1);       
+                  }
+              }
+              #endif
+2163          
+2164          //------------------------------------------------------------
+2165          //                MCU DAC function
+2166          //------------------------------------------------------------
+2167          void CSetPWM(BYTE PWMId, WORD Value)
+2168          {         
+2169   1          BYTE ucPWMData = 0;
+2170   1      
+2171   1      /*
+2172   1           switch(PWMId)
+2173   1           {
+2174   1               case _SCALAR_PWM0:             // Scalar PWM
+2175   1               case _SCALAR_PWM1:
+2176   1               case _SCALAR_PWM2:
+2177   1                   pData[0] = PWMId << 6;     // PWM ID
+2178   1                   pData[1] = 0x01;
+2179   1                   pData[2] = Value;
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 37  
+
+2180   1                   CScalerWrite(_OSD_ADDR_MSB_90,3,pData,_AUTOINC);
+2181   1                   break;
+2182   1      
+2183   1      #if(_MCU_TYPE == _MYSON_MTV512 || _MCU_TYPE == _RTD_2120)
+2184   1               case _MCU_PWM0:
+2185   1               case _MCU_PWM1:
+2186   1               case _MCU_PWM2:
+2187   1                    CSetMCUPWM(PWMId - _MCU_PWM0,Value);
+2188   1                    break;
+2189   1      
+2190   1               case _MCU_PWM3:
+2191   1               case _MCU_PWM4:
+2192   1               case _MCU_PWM5:
+2193   1                    CSetMCUPWM(PWMId - _MCU_PWM3,Value);
+2194   1                    break;
+2195   1      #endif
+2196   1           }  */
+2197   1           switch(PWMId)
+2198   1           {
+2199   2           case 0:  // PWM0
+2200   2      /*         ucPWMData = MCU_PWM01L_DUT_FF4C;
+2201   2               MCU_PWM0H_DUT_FF4A  = (Value >> 4) & 0xFF;
+2202   2               MCU_PWM01L_DUT_FF4C = (ucPWMData & 0xF0) | ((BYTE)Value & 0x0F); */
+2203   2               MCU_PWM0H_DUT_FF4A  = Value;
+2204   2               break;
+2205   2      
+2206   2           case 1:  // PWM1
+2207   2      /*         ucPWMData = MCU_PWM01L_DUT_FF4C;
+2208   2               MCU_PWM1H_DUT_FF4B  = (Value >> 4) & 0xFF;
+2209   2               MCU_PWM01L_DUT_FF4C = (ucPWMData & 0x0F) | (((BYTE)Value & 0x0F) << 4); */
+2210   2               MCU_PWM1H_DUT_FF4B  = Value;
+2211   2               break;
+2212   2      
+2213   2           case 2:  // PWM2
+2214   2      /*         ucPWMData = MCU_PWM23L_DUT_FF4F;
+2215   2               MCU_PWM2H_DUT_FF4D  = (Value >> 4) & 0xFF;
+2216   2               MCU_PWM23L_DUT_FF4F = (ucPWMData & 0xF0) | ((BYTE)Value & 0x0F);*/
+2217   2               MCU_PWM2H_DUT_FF4D  = Value;
+2218   2               break;
+2219   2      
+2220   2           case 3:  // PWM3
+2221   2      /*         ucPWMData = MCU_PWM23L_DUT_FF4F;
+2222   2               MCU_PWM3H_DUT_FF4E  = (Value >> 4) & 0xFF;
+2223   2               MCU_PWM23L_DUT_FF4F = (ucPWMData & 0x0F) | (((BYTE)Value & 0x0F) << 4); */
+2224   2               MCU_PWM3H_DUT_FF4E  = Value;
+2225   2               break;
+2226   2      
+2227   2           case 4:  // PWM4
+2228   2      /*         ucPWMData = MCU_PWM45L_DUT_FF52;
+2229   2               MCU_PWM4H_DUT_FF50  = (Value >> 4) & 0xFF;
+2230   2               MCU_PWM45L_DUT_FF52 = (ucPWMData & 0xF0) | ((BYTE)Value & 0x0F); */
+2231   2               MCU_PWM4H_DUT_FF50  = Value;
+2232   2               break;
+2233   2      
+2234   2           case 5:  // PWM5     
+2235   2      /*         ucPWMData = MCU_PWM45L_DUT_FF52;
+2236   2               MCU_PWM5H_DUT_FF51  = (Value >> 4) & 0xFF;
+2237   2               MCU_PWM45L_DUT_FF52 = (ucPWMData & 0x0F) | (((BYTE)Value & 0x0F) << 4); */
+2238   2               MCU_PWM5H_DUT_FF51  = Value;
+2239   2               break;
+2240   2      
+2241   2           }
+C51 COMPILER V7.06   ADJUST                                                                04/29/2010 18:05:57 PAGE 38  
+
+2242   1      }
+2243          //-------------------------------------------------
+2244          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   7247    ----
+   CONSTANT SIZE    =     14    ----
+   XDATA SIZE       =      1     155
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =     15    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

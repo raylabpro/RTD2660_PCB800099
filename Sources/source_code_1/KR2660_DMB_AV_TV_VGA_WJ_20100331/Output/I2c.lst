@@ -1,0 +1,627 @@
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE I2C
+OBJECT MODULE PLACED IN .\Output\I2c.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\mcu\I2c.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT
+                    -(.\Output\I2c.lst) OBJECT(.\Output\I2c.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : I2c.c No.0000
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __I2C__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          //#undef CONFIG_VBI_ENABLE
+  12          //----------------------------------------------------------------------------------------------------
+  13          // I2C communication basic function
+  14          //----------------------------------------------------------------------------------------------------
+  15          void Delay5us(void)
+  16          {
+  17   1              _nop_();
+  18   1              _nop_();
+  19   1              _nop_();
+  20   1              _nop_();
+  21   1              _nop_();
+  22   1              _nop_();
+  23   1              _nop_();
+  24   1              _nop_();
+  25   1              _nop_();
+  26   1              _nop_();
+  27   1              _nop_();
+  28   1              _nop_();
+  29   1              _nop_();
+  30   1              _nop_();
+  31   1              _nop_();
+  32   1              _nop_();
+  33   1              _nop_();
+  34   1              _nop_();
+  35   1              _nop_();
+  36   1              _nop_();
+  37   1              _nop_();
+  38   1              _nop_();
+  39   1              _nop_();
+  40   1              _nop_();
+  41   1      
+  42   1      
+  43   1      
+  44   1              _nop_();
+  45   1              _nop_();
+  46   1              _nop_();
+  47   1              _nop_();
+  48   1              _nop_();
+  49   1              _nop_();
+  50   1              _nop_();
+  51   1              _nop_();
+  52   1              _nop_();
+  53   1              _nop_();
+  54   1              _nop_();
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 2   
+
+  55   1              _nop_();
+  56   1              _nop_();
+  57   1      
+  58   1      
+  59   1      }
+  60          
+  61          void Delay_us(WORD us)
+  62          {
+  63   1              for(;us>0;us--);
+  64   1              {
+  65   2              _nop_();
+  66   2              _nop_();
+  67   2              _nop_();
+  68   2              _nop_();
+  69   2              _nop_();
+  70   2              _nop_();
+  71   2              _nop_();
+  72   2              _nop_();
+  73   2              }
+  74   1      }
+  75          
+  76          BYTE CI2cStart(BYTE ucDeviceAddr)
+  77          {
+  78   1      
+  79   1          SETI2CSCL();
+  80   1          Delay5us();
+  81   1          while(!(CHECKI2CSCL()));
+  82   1          SETI2CSDA();
+  83   1          CLRI2CSDA();
+  84   1          Delay5us();
+  85   1          CLRI2CSCL();
+  86   1      
+  87   1          return CI2cSendByte(ucDeviceAddr);
+  88   1      }
+  89          
+  90          BYTE CI2cStartFM(BYTE ucDeviceAddr)
+  91          {
+  92   1      
+  93   1          SETI2CSCLFM();
+  94   1          Delay5us();
+  95   1        //  while(!(CHECKI2CSCLFM()));
+  96   1          SETI2CSDAFM();
+  97   1              Delay5us();
+  98   1          CLRI2CSDAFM();
+  99   1          Delay5us();
+ 100   1          CLRI2CSCLFM();
+ 101   1              Delay5us();
+ 102   1              
+ 103   1          return CI2cSendByteFM(ucDeviceAddr);
+ 104   1      }
+ 105          
+ 106          void CI2cStop(void)
+ 107          {
+ 108   1          CLRI2CSDA();
+ 109   1          SETI2CSCL();
+ 110   1          Delay5us();
+ 111   1          SETI2CSDA();
+ 112   1      }
+ 113          
+ 114          void CI2cStopFM(void)
+ 115          {
+ 116   1          CLRI2CSDAFM();
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 3   
+
+ 117   1          SETI2CSCLFM();
+ 118   1          Delay5us();
+ 119   1          SETI2CSDAFM();
+ 120   1      }
+ 121          
+ 122          BYTE CI2cGetAck(void)
+ 123          {
+ 124   1          BYTE ack;
+ 125   1      
+ 126   1          SETI2CSDA();
+ 127   1          SETI2CSCL();
+ 128   1          Delay5us();
+ 129   1          ack = CHECKI2CSDA();
+ 130   1          CLRI2CSCL();
+ 131   1          SETI2CSDA();
+ 132   1      
+ 133   1          return ack;
+ 134   1      }
+ 135          
+ 136          BYTE CI2cGetAckFM(void)
+ 137          {
+ 138   1          BYTE ack;
+ 139   1      
+ 140   1          SETI2CSDAFM();
+ 141   1          SETI2CSCLFM();
+ 142   1          Delay5us();
+ 143   1              Delay5us();
+ 144   1              Delay5us();
+ 145   1        //  ack = CHECKI2CSDAFM();
+ 146   1          CLRI2CSCLFM();
+ 147   1          SETI2CSDAFM();
+ 148   1              Delay5us();
+ 149   1              Delay5us();
+ 150   1      
+ 151   1          return ack;
+ 152   1      }
+ 153          
+ 154          void CI2cSendAck(void)
+ 155          {
+ 156   1          CLRI2CSDA();
+ 157   1          SETI2CSCL();
+ 158   1          Delay5us();
+ 159   1          CLRI2CSCL();
+ 160   1      }
+ 161          
+ 162          void CI2cSendNoAck(void)
+ 163          {
+ 164   1          SETI2CSDA();
+ 165   1          SETI2CSCL();
+ 166   1          Delay5us();
+ 167   1          CLRI2CSCL();
+ 168   1      }
+ 169          
+ 170          
+ 171          BYTE CI2cSendByte(BYTE ucValue)
+ 172          {
+ 173   1          BYTE cnt;
+ 174   1      
+ 175   1          for(cnt=0;cnt<8;cnt++)
+ 176   1          {
+ 177   2              if((bit)(ucValue & 0x80))
+ 178   2                  SETI2CSDA();
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 4   
+
+ 179   2              else
+ 180   2                  CLRI2CSDA();
+ 181   2                  
+ 182   2              SETI2CSCL();
+ 183   2              Delay5us();
+ 184   2              CLRI2CSCL();
+ 185   2              ucValue = ucValue << 1;
+ 186   2          }
+ 187   1          if(CI2cGetAck())
+ 188   1          {
+ 189   2              CI2cStop();
+ 190   2              return _I2C_BUSY;
+ 191   2          }
+ 192   1          else
+ 193   1          {
+ 194   2              return _I2C_OK;
+ 195   2          }
+ 196   1      }
+ 197          
+ 198          BYTE CI2cSendByteFM(BYTE ucValue)
+ 199          {
+ 200   1          BYTE cnt;
+ 201   1      
+ 202   1          for(cnt=0;cnt<8;cnt++)
+ 203   1          {
+ 204   2              if((bit)(ucValue & 0x80))
+ 205   2                  SETI2CSDAFM();
+ 206   2              else
+ 207   2                  CLRI2CSDAFM();
+ 208   2              SETI2CSCLFM();
+ 209   2              Delay5us();
+ 210   2                      Delay5us();
+ 211   2                      Delay5us();
+ 212   2              CLRI2CSCLFM();
+ 213   2                      Delay5us();
+ 214   2                      Delay5us();
+ 215   2              ucValue = ucValue << 1;
+ 216   2          }
+ 217   1              Delay5us();
+ 218   1              Delay5us();
+ 219   1          if(CI2cGetAckFM())
+ 220   1          {
+ 221   2             // CI2cStopFM();
+ 222   2              return _I2C_OK;
+ 223   2          }
+ 224   1          else
+ 225   1          {
+ 226   2              return _I2C_OK;
+ 227   2          }
+ 228   1                      Delay5us();
+ 229   1                      Delay5us();
+ 230   1                      Delay5us();
+ 231   1                      Delay5us();
+ 232   1      }
+ 233          
+ 234          BYTE CI2cGetByte(void)
+ 235          {
+ 236   1          BYTE cnt, value;
+ 237   1      
+ 238   1          value = 0;
+ 239   1          SETI2CSDA();
+ 240   1          for(cnt=0;cnt<8;cnt++)
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 5   
+
+ 241   1          {
+ 242   2              SETI2CSCL();
+ 243   2              Delay5us();
+ 244   2              value = (value << 1) | CHECKI2CSDA();
+ 245   2              CLRI2CSCL();
+ 246   2          }
+ 247   1          return value;
+ 248   1      }
+ 249          
+ 250          bit CI2cWriteStart(BYTE ucDeviceAddr, BYTE ucStartAddr)
+ 251          {
+ 252   1          BYTE timeoutcnt, control;
+ 253   1      
+ 254   1          timeoutcnt  = _I2C_TIMEOUT_LIMIT;
+ 255   1          control     = ucDeviceAddr | _I2C_WR;
+ 256   1          while(CI2cStart(control) != _I2C_OK)
+ 257   1          {
+ 258   2              timeoutcnt--;
+ 259   2              
+ 260   2              if(!timeoutcnt)
+ 261   2                  return _FAIL;
+ 262   2      
+ 263   2          }
+ 264   1          if(CI2cSendByte(ucStartAddr) != _I2C_OK)
+ 265   1              return _FAIL;
+ 266   1              
+ 267   1          return _SUCCESS;
+ 268   1      }
+ 269          
+ 270          
+ 271          //--------------------------------------------------
+ 272          // Description  : Read data from the selected device by I2C protocol
+ 273          // Input Value  : ucDeviceAddr  --> Device address
+ 274          //                ucStartAddr   --> Start address of selected device
+ 275          //                usLength      --> Numbers of data we want to read
+ 276          //                pReadArray    --> Result array
+ 277          // Output Value : Reading result (Fail/Success)
+ 278          //--------------------------------------------------
+ 279          bit CI2cRead(BYTE ucDeviceAddr, BYTE ucStartAddr, WORD usLength, BYTE *pReadArray)
+ 280          {
+ 281   1          BYTE control;
+ 282   1      
+ 283   1          if(usLength == 0)
+ 284   1              return _FAIL;
+ 285   1      
+ 286   1          if(CI2cWriteStart(ucDeviceAddr, ucStartAddr) == _FAIL)
+ 287   1              return _FAIL;
+ 288   1      
+ 289   1          control = ucDeviceAddr | _I2C_RD;
+ 290   1      
+ 291   1          if(CI2cStart(control) != _I2C_OK)
+ 292   1              return _FAIL;
+ 293   1      
+ 294   1          while(--usLength)
+ 295   1          {
+ 296   2              *pReadArray++ = CI2cGetByte();
+ 297   2              CI2cSendAck();
+ 298   2          }
+ 299   1      
+ 300   1          *pReadArray++ = CI2cGetByte();
+ 301   1      
+ 302   1          CI2cSendNoAck();
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 6   
+
+ 303   1          CI2cStop();
+ 304   1      
+ 305   1          return _SUCCESS;
+ 306   1      }
+ 307          
+ 308          //--------------------------------------------------
+ 309          
+ 310          //--------------------------------------------------
+ 311          
+ 312          // Description  : Write data to the selected device by I2C protocol
+ 313          // Input Value  : ucDeviceAddr  --> Device address
+ 314          //                ucStartAddr   --> Start address of selected device
+ 315          //                usLength      --> Numbers of data we want to write
+ 316          //                pWriteArray   --> Writing data array
+ 317          // Output Value : Write result (Fail/Success)
+ 318          //--------------------------------------------------
+ 319          bit CI2cWrite(BYTE ucDeviceAddr, BYTE ucStartAddr, WORD usLength, BYTE *pWriteArray)
+ 320          {
+ 321   1          BYTE control;
+ 322   1      
+ 323   1          if(usLength == 0)
+ 324   1              return _FAIL;
+ 325   1          while(usLength > 0)
+ 326   1          {
+ 327   2              if(CI2cWriteStart(ucDeviceAddr, ucStartAddr) == _FAIL)
+ 328   2                  return _FAIL;
+ 329   2      
+ 330   2              control = _I2C_WRITE_SIZE - (ucStartAddr & 0x0f);
+ 331   2      
+ 332   2              if(usLength > control)
+ 333   2              {
+ 334   3                  usLength -= control;
+ 335   3                  if(ucStartAddr >= 0xf0)
+ 336   3                      ucDeviceAddr += 2;
+ 337   3                  ucStartAddr += control;
+ 338   3              }
+ 339   2              else
+ 340   2              {
+ 341   3                  control = usLength;
+ 342   3                  usLength = 0;
+ 343   3              }
+ 344   2      
+ 345   2              while(control--)
+ 346   2              {
+ 347   3                  if(CI2cSendByte(*pWriteArray++) != _I2C_OK)
+ 348   3                      return _FAIL;
+ 349   3              }
+ 350   2      
+ 351   2              CI2cStop();
+ 352   2          }
+ 353   1      
+ 354   1          return _SUCCESS;
+ 355   1      }
+ 356          bit CI2cWriteFM( BYTE ucStartAddr, BYTE ucdata1, BYTE ucdata2)
+ 357          {
+ 358   1          BYTE timeoutcnt, control;
+ 359   1          timeoutcnt  = _I2C_TIMEOUT_LIMIT;
+ 360   1          control = ((ucStartAddr)<<1)|0x80;  
+ 361   1          control = control | _I2C_WR;
+ 362   1          while(CI2cStartFM(control) != _I2C_OK)
+ 363   1          {
+ 364   2              timeoutcnt--;      
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 7   
+
+ 365   2              if(!timeoutcnt)
+ 366   2                  return _FAIL;
+ 367   2          }
+ 368   1              CI2cSendByteFM(ucdata1);
+ 369   1              CI2cSendByteFM(ucdata2);        
+ 370   1              CI2cStopFM();   
+ 371   1          return _SUCCESS;
+ 372   1      }
+ 373          
+ 374          void AS6300_Set_Freq(WORD frq)
+ 375          {
+ 376   1              char  rfpll_pb;
+ 377   1              char  rfpll_sb;
+ 378   1              WORD    temp;
+ 379   1              BYTE temp1,temp2;
+ 380   1              temp = frq+2;
+ 381   1              rfpll_sb  = temp % 15;
+ 382   1              rfpll_pb = (temp - rfpll_sb) / 15 - 1;
+ 383   1              
+ 384   1              temp1 = (rfpll_pb >> 1);
+ 385   1              temp1 |= (rfpll_sb<<7);
+ 386   1              temp2 = (rfpll_pb<<7)|0x20;
+ 387   1              CI2cWriteFM(5,temp1,temp2);
+ 388   1              temp1 = 0x88;
+ 389   1              temp2 = rfpll_sb>>1;
+ 390   1              CI2cWriteFM(6,temp1,temp2);
+ 391   1      }
+ 392          
+ 393          
+ 394          //==============================================================================
+ 395          //idcode: 高8位是低8位的补码//wtao100415
+ 396          #ifdef IRSEND_ENABLE
+ 397          void IR_Trans_Command(WORD customcode,WORD idcode)
+ 398          {
+ 399   1              data BYTE index;
+ 400   1      
+ 401   1              EA = 0;
+ 402   1      //-------------------------
+ 403   1              IR_PIN_H;
+ 404   1              IR_PIN_L;
+ 405   1              Delay_us(1520);
+ 406   1              IR_PIN_H;
+ 407   1              Delay_us(740);
+ 408   1              IR_PIN_L;
+ 409   1      
+ 410   1              for(index = 0;index<16;index++)
+ 411   1              {
+ 412   2                      IR_PIN_L;
+ 413   2                      Delay_us(88);
+ 414   2                      if(customcode&0x0001)
+ 415   2                      {//send 1
+ 416   3                              IR_PIN_H;
+ 417   3                              Delay_us(275);
+ 418   3                      }
+ 419   2                      else
+ 420   2                      {
+ 421   3                              IR_PIN_H;
+ 422   3                              Delay_us(88);
+ 423   3                      }               
+ 424   2                      customcode >>= 1;
+ 425   2              } 
+ 426   1      
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 8   
+
+ 427   1              for(index = 0;index<16;index++)
+ 428   1              {
+ 429   2                      IR_PIN_L;
+ 430   2                      Delay_us(88);
+ 431   2                      if(idcode&0x0001)
+ 432   2                      {//send 1
+ 433   3                              IR_PIN_H;
+ 434   3                              Delay_us(275);
+ 435   3                      }
+ 436   2                      else
+ 437   2                      {
+ 438   3                              IR_PIN_H;
+ 439   3                              Delay_us(88);
+ 440   3                      }
+ 441   2                      idcode >>= 1;           
+ 442   2              }
+ 443   1      
+ 444   1              IR_PIN_L;
+ 445   1              Delay_us(88);
+ 446   1              IR_PIN_H;
+ 447   1      //-------------------------
+ 448   1              EA = 1;
+ 449   1      }
+ 450          #endif
+ 451          
+ 452          //==============================================================================
+ 453          /*
+ 454          #define _ALC_SLAVE                              0x40
+ 455          
+ 456          #define bMute
+ 457          #define bALCPower
+ 458          
+ 459          #define _MUTE_ON
+ 460          #define _MUTE_OFF
+ 461          #define _ALC_POWER_ON
+ 462          #define _ALC_POWER_OFF
+ 463          
+ 464          #define _ALC_CH0                                0
+ 465          #define _ALC_CH1                                1
+ 466          #define _ALC_CH2                                2
+ 467          #define _ALC_CH3                                3
+ 468          
+ 469          BYTE g_ucAlcCtrl0 = 0x1f;
+ 470          //==============================================================================
+ 471          void CAlcInit(void)
+ 472          {
+ 473                  //Zero Detection Control Bit8
+ 474                  //0: Turn Off
+ 475                  //1: Turn On
+ 476                  
+ 477                  //Output Clamping Control Bit5
+ 478                  //0: Internal Control
+ 479                  //1: External OPL Pin Control   
+ 480          
+ 481                  
+ 482                  BYTE ucCtrl = (1 << 8) | (0 << 5);
+ 483                  CAlcWrite(0x01,g_ucAlcCtrl0);
+ 484                  CAlcWrite(0x02,ucCtrl);
+ 485          
+ 486                  CAlcSetMuteOn();
+ 487                  CAlcSetPowerOff();      
+ 488          }
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 9   
+
+ 489          //==============================================================================
+ 490          WORD CAlcRead(BYTE usAddr)
+ 491          {
+ 492                  WORD usData;
+ 493                  CI2cRead(_ALC_SLAVE, usAddr, 2, pData);
+ 494                  
+ 495                  usData = ((WORD)pData[0] << 8) | pData[1];
+ 496                  return usData;
+ 497          }
+ 498          //==============================================================================
+ 499          void CAlcWrite(BYTE usAddr,WORD usData)
+ 500          {
+ 501                  pData[0] = (usData >> 8) & 0xff;
+ 502                  pData[1] = usData & 0xff;
+ 503                  
+ 504                  CI2cWrite(_ALC_SLAVE, usAddr, 2, pData);        
+ 505          }
+ 506          //==============================================================================
+ 507          void CAlcSetMuteOn(void)
+ 508          {
+ 509                  WORD usRD;
+ 510                  BYTE usTimeOut = 5;
+ 511          
+ 512                  while(usTimeOut --)
+ 513                  {
+ 514                          bMute = _MUTE_ON;
+ 515                          usRD = CAlcRead(0x00);
+ 516                          if(usRD & _BIT8)
+ 517                                  return;
+ 518                  }
+ 519          }
+ 520          //==============================================================================
+ 521          void CAlcSetMuteOff(void)
+ 522          {
+ 523                  WORD usRD;
+ 524                  BYTE usTimeOut = 5;
+ 525          
+ 526                  while(usTimeOut --)
+ 527                  {
+ 528                          bMute = _MUTE_OFF;      
+ 529                          usRD = CAlcRead(0x00);
+ 530                          if((usRD & _BIT8) == 0x00)
+ 531                                  return;         
+ 532                  }
+ 533          }
+ 534          //==============================================================================
+ 535          void CAlcSetPowerOn(void)
+ 536          {
+ 537                  WORD usRD;
+ 538                  BYTE usTimeOut = 5;
+ 539          
+ 540                  while(usTimeOut --)
+ 541                  {
+ 542                          bALCPower = _ALC_POWER_ON;      
+ 543                          usRD = CAlcRead(0x00);
+ 544                          if(usRD & _BIT9)
+ 545                                  return;         
+ 546                  }
+ 547          }
+ 548          //==============================================================================
+ 549          void CAlcSetPowerOff(void)
+ 550          {
+C51 COMPILER V7.06   I2C                                                                   04/29/2010 18:06:18 PAGE 10  
+
+ 551                  WORD usRD;
+ 552                  BYTE usTimeOut = 5;
+ 553          
+ 554                  while(usTimeOut --)
+ 555                  {
+ 556                          bALCPower = _ALC_POWER_ON;      
+ 557                          usRD = CAlcRead(0x00);
+ 558                          if((usRD & _BIT9) == 0x00)
+ 559                                  return;         
+ 560                  }
+ 561          }
+ 562          //==============================================================================
+ 563          void CAlcSetVolume(BYTE ucVolume)
+ 564          {
+ 565                  g_ucAlcCtrl0 = (g_ucAlcCtrl0 & (~0x1F)) | (ucVolume & 0x1F);
+ 566                  CAlcWrite(0x01,g_ucAlcCtrl0);
+ 567          }
+ 568          //==============================================================================
+ 569          void CAlcSetChannel(BYTE ucChannel)
+ 570          {
+ 571                  g_ucAlcCtrl0 = (g_ucAlcCtrl0 & (~0x60)) | (ucChannel << 5);
+ 572                  CAlcWrite(0x01,g_ucAlcCtrl0);
+ 573          }
+ 574          //==============================================================================
+ 575          
+ 576          
+ 577          
+ 578          void CAlcInit(void);
+ 579          void CAlcSetMuteOn(void);
+ 580          void CAlcSetMuteOff(void);
+ 581          void CAlcSetPowerOn(void);
+ 582          void CAlcSetPowerOff(void);
+ 583          void CAlcSetVolume(BYTE ucVolume);
+ 584          void CAlcSetChannel(BYTE ucChannel);
+ 585          */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1016    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      24
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,211 @@
+C51 COMPILER V7.06   MAIN                                                                  04/29/2010 18:06:04 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE MAIN
+OBJECT MODULE PLACED IN .\Output\Main.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\Main.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\
+                    -Output\Main.lst) OBJECT(.\Output\Main.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // Copyright of Realtek SemiConductor Corp.
+   3          // Version : V1.00c (09.15.2009)
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          //----------------------------------------------------------------------------------------------------
+   8          // ID Code      : Main.c No.0002
+   9          // Update Note  :
+  10          //
+  11          //----------------------------------------------------------------------------------------------------
+  12          
+  13          #define __MAIN__
+  14          
+  15          #include "Core\Header\Include.h"
+  16          
+  17          
+  18          /**
+  19           * CMainUserInitial
+  20           * Setting some flags for user when initial
+  21           * @param <none>
+  22           * @return {none}
+  23           *
+  24           */
+  25          void CMainUserInitial(void)
+  26          {
+  27   1          // User can make some initial settings at firmware startup
+  28   1          CLR_PANELPOWERSTATUS();
+  29   1          CLR_LIGHTPOWERSTATUS();
+  30   1          CLR_FRAMESYNCSTATUS();
+  31   1          CLR_POWERSWITCH();
+  32   1          CLR_FIRST_ADCCLOCK();
+  33   1          CLR_OSD_READYFORDISPLAY();
+  34   1      #if(_HDMI_SUPPORT == _ON)
+                     CLR_HDMIINPUT();
+              #endif
+  37   1          SET_FIRST_LOADFONT();
+  38   1      #if defined(CONFIG_VBI_ENABLE)
+                  CLR_OSDVBI_INITIAL();
+              #endif
+  41   1          //SET_SOURCE_AUTOCHANGE();
+  42   1          CLR_SOURCE_AUTOCHANGE();
+  43   1          SET_PRE_VGA_CONNECT(bVGACONNECT);
+  44   1      #if(_TMDS_SUPPORT == _ON)
+              #if (_HDMI_SUPPORT == _ON)
+                  SET_PRE_HDMI_CONNECT(bHDMICONNECT);
+              #else
+                  SET_PRE_DVI_CONNECT(bDVICONNECT);
+              #endif
+              #endif
+  51   1          CLR_USE_TRANSITION_RESULT();
+  52   1          CheckLanguage();
+  53   1      }
+  54          //-------------------------------------------------------------------------
+C51 COMPILER V7.06   MAIN                                                                  04/29/2010 18:06:04 PAGE 2   
+
+  55          
+  56          
+  57          //-------------------------------------------------------------------------
+  58          
+  59          /**
+  60           * CMainSystemInitial
+  61           * Initial the system for once when power up
+  62           * @param <none>
+  63           * @return {none}
+  64           *
+  65           */
+  66          void CMainSystemInitial(void)
+  67          {          
+  68   1      #if(_VIDEO_TV_SUPPORT)
+  69   1       #if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338 || _IF_PLL_DE_CHIP == _IF_PLL_DE_135X)
+                  ucAddrIfPllDM = _ADDR_IfPllDM;
+               #endif
+  72   1      #endif
+  73   1      
+  74   1          // Initial MCU
+  75   1          CMcuInitial();
+  76   1      
+  77   1          CMuteOn();
+  78   1      
+  79   1      
+  80   1      #if(_HDCP_SUPPORT == _ON && _HDMI_HOT_PLUG_OPTION)
+                  bHot_Plug = _HOT_PLUG_LOW;
+                  bHot_Plug2 = _HOT_PLUG_LOW;    
+              #endif
+  84   1      
+  85   1              CUartSendString("Init timer\n");
+  86   1      
+  87   1          // Initial timer events
+  88   1          CTimerInitialTimerEvent();
+  89   1          //CMuteOn();
+  90   1      
+  91   1          CPowerLightPowerOff();
+  92   1          CPowerPanelPowerOff();
+  93   1      
+  94   1          CUartSendString("Init flash\n");
+  95   1      
+  96   1          #if(_MEMORY_LOCATION == _FLASH)
+  97   1               InitFlash();
+  98   1          #endif    
+  99   1      
+ 100   1              CUartSendString("eeprom check\n");
+ 101   1          // Check eeprom and load eeprom settings
+ 102   1              CEepromStartupCheck();
+ 103   1      
+ 104   1          //_SET_INPUT_SOURCE(_SOURCE_VIDEO_AV);
+ 105   1          if(GET_POWERSTATUS())  // Power up
+ 106   1             CPowerLedRed();
+ 107   1          else
+ 108   1          {
+ 109   2             CPowerLedOff();
+ 110   2          }
+ 111   1      
+ 112   1              CUartSendString("scaer init\n");
+ 113   1          
+ 114   1          // Initial scaler settings
+ 115   1              CScalerInitial();
+ 116   1      
+C51 COMPILER V7.06   MAIN                                                                  04/29/2010 18:06:04 PAGE 3   
+
+ 117   1      
+ 118   1              CUartSendString("key init\n");
+ 119   1          // Initial key scan status
+ 120   1          CKeyInitial();
+ 121   1      
+ 122   1              CUartSendString("user init\n");
+ 123   1          // Initial user settings
+ 124   1          CMainUserInitial();
+ 125   1      
+ 126   1              CUartSendString("DDC init\n");
+ 127   1      
+ 128   1          CDDCCIInitial();
+ 129   1      #if(_RS232_EN)
+                  CUartInit();
+              #endif
+ 132   1      
+ 133   1              CUartSendString("IR init\n");    
+ 134   1          CIrdaInitial();
+ 135   1      
+ 136   1              CUartSendString("Get Extend \n");    
+ 137   1              GetExtendEnable();
+ 138   1      
+ 139   1              SetPanelLR();
+ 140   1              SetPanelUD();
+ 141   1      
+ 142   1              SetFM();
+ 143   1              //CUartSendString("init over \n");    
+ 144   1      }
+ 145          
+ 146          /**
+ 147           * main
+ 148           * main process
+ 149           * first system initial, then main loop
+ 150           * @param <none>
+ 151           * @return {none}
+ 152           *
+ 153          */
+ 154          void main(void)
+ 155          {
+ 156   1          CMainSystemInitial();
+ 157   1          CUartSendString("Begin...\n");
+ 158   1          do
+ 159   1          {
+ 160   2              CMiscIspDebugProc();                                         
+ 161   2              CTimerHandler();
+ 162   2              CKeyHandler();
+ 163   2              CModeHandler();
+ 164   2              COsdHandler(); 
+ 165   2          }while(_TRUE);
+ 166   1      }
+ 167          
+ 168          /*
+ 169          void DbgLed(unsigned char ucCount)
+ 170          {
+ 171                  unsigned char i;             
+ 172                  for(i=0; i<ucCount; i++)
+ 173                  {
+ 174                          CPowerLedOrange();
+ 175                          CTimerDelayXms(100);
+ 176                          CPowerLedRed();
+ 177                          CTimerDelayXms(100);
+ 178                  }
+C51 COMPILER V7.06   MAIN                                                                  04/29/2010 18:06:04 PAGE 4   
+
+ 179                  CPowerLedGreen();
+ 180          }
+ 181            */
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    151    ----
+   CONSTANT SIZE    =   1395    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =     19    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

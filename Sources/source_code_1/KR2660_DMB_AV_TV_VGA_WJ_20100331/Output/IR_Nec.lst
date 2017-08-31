@@ -1,0 +1,167 @@
+C51 COMPILER V7.06   IR_NEC                                                                04/29/2010 18:06:05 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE IR_NEC
+OBJECT MODULE PLACED IN .\Output\IR_Nec.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\IR_Nec.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(
+                    -.\Output\IR_Nec.lst) OBJECT(.\Output\IR_Nec.obj)
+
+stmt level    source
+
+   1          #define _IR_C
+   2          
+   3          
+   4          #include "Core\Header\include.h"
+   5          
+   6          BYTE ucIrQueue[4];
+   7          BYTE ucPrevKey = _NONE_KEY_MESSAGE;
+   8          BYTE ucRepKeyCount = 0;
+   9          void CIrdaReadData(void);
+  10          
+  11          //--------------------------------------------------
+  12          // Description  : Get IR key status
+  13          // Input Value  : None
+  14          // Output Value : None
+  15          //--------------------------------------------------
+  16          BYTE CIRKeyScan(void)
+  17          {
+  18   1          BYTE ucIRMessage = _NONE_KEY_MESSAGE;
+  19   1          BYTE ucIrdaStatus = MCU_IR_STATUS_FF89;
+  20   1              
+  21   1          if (ucIrdaStatus & (_BIT4|_BIT3))
+  22   1          {
+  23   2              CIrdaReadData();
+  24   2              if((ucIrdaStatus & _BIT2) == 0x00)
+  25   2              {
+  26   3                if(g_bUsePresetIR)
+  27   3                      ucIRMessage = ScanPresetIR();
+  28   3                else
+  29   3                      ucIRMessage = ScanExtendIR();
+  30   3              }               
+  31   2              else// if (ucIrdaStatus&_BIT2)  
+  32   2              {   //Repeat command
+  33   3                  ucRepKeyCount++;
+  34   3                  if (ucRepKeyCount > 2)
+  35   3                  {
+  36   4                      if (ucRepKeyCount > 250)
+  37   4                          ucRepKeyCount = 3;
+  38   4      
+  39   4                      if (GET_KEYREPEATENABLE())
+  40   4                          ucIRMessage = ucPrevKey;
+  41   4                  }
+  42   3              }
+  43   2          }
+  44   1              
+  45   1              return ucIRMessage;
+  46   1      }
+  47          //--------------------------------------------------
+  48          BYTE ScanPresetIR(void)
+  49          {
+  50   1          BYTE i;
+  51   1              BYTE ucIRCode; 
+  52   1          BYTE ucIRMessage = _NONE_KEY_MESSAGE;
+  53   1      
+  54   1      
+C51 COMPILER V7.06   IR_NEC                                                                04/29/2010 18:06:05 PAGE 2   
+
+  55   1              if((IRKeyMsg[0][0] == ucIrQueue[0]) && (IRKeyMsg[0][1] == ucIrQueue[1]))
+  56   1              {
+  57   2                      if(ucIrQueue[2] == (~ucIrQueue[3])) 
+  58   2                      {
+  59   3                              ucIRCode = ucIrQueue[2];
+  60   3      
+  61   3                              // Search key message
+  62   3                              i = 1;
+  63   3                              while(1)
+  64   3                              {
+  65   4                                      if((IRKeyMsg[i][0] == 0) && (IRKeyMsg[i][1] == 0))
+  66   4                                      {
+  67   5                                              break;
+  68   5                                      }
+  69   4      
+  70   4                                      if (ucIRCode == IRKeyMsg[i][0])
+  71   4                                      {
+  72   5                                              ucIRMessage = IRKeyMsg[i][1];
+  73   5                                              break;
+  74   5                                      }
+  75   4      
+  76   4                                      i ++;
+  77   4                              }
+  78   3      
+  79   3                              ucRepKeyCount = 0;
+  80   3                      }
+  81   2              } 
+  82   1              
+  83   1              return ucIRMessage;
+  84   1      }
+  85          //--------------------------------------------------
+  86          
+  87          
+  88          UINT8 code tIrdaInitial[12] =
+  89          {
+  90                  0x60,//                 IR_CTRL1_FF80   
+  91                  0x03,//0a,//03//        IR_DEBOUNCE_FF81
+  92                  0x65,//                 IR_BURST_LENGTH_FF82
+  93                  0x32,//                 IR_SILENCE_LENGTH_FF83
+  94                  0x19,//                 IR_REPEAT_LENGTH_FF84
+  95                  0x19,//                 IR_MOD_LENGTH_FF85
+  96                  0x19,//                 IR_DATA0_LENGTH_FF86
+  97                  0x4d,//                 IR_DATA1_LENGTH_FF87
+  98                  
+  99                  0x9F,//                 IR_CTRL2_FF88
+ 100                  
+ 101                  0xa2,//0xa0,//0X97,//                   IR_ONE_CMD_TIME_FF90
+ 102                  0xb8,//0xb4,//0xaf,//0Xa5,//                    IR_IDLE_TIME_FF91
+ 103                  0x00,//                 IR_CTRL3_FF92
+ 104          
+ 105          };
+ 106          //--------------------------------------------------
+ 107          
+ 108          void CIrdaInitial(void)
+ 109          {
+ 110   1              MCU_IR_CTRL1_FF80                       =       tIrdaInitial[0];                
+ 111   1              MCU_IR_DEBOUNCE_FF81            =       tIrdaInitial[1];                
+ 112   1              MCU_IR_BURST_LENGTH_FF82        =       tIrdaInitial[2];                        
+ 113   1              MCU_IR_SILENCE_LENGTH_FF83  =   tIrdaInitial[3];                                
+ 114   1              MCU_IR_REPEAT_LENGTH_FF84   =   tIrdaInitial[4];                                
+ 115   1              MCU_IR_MOD_LENGTH_FF85      =   tIrdaInitial[5];                        
+ 116   1              MCU_IR_DATA0_LENGTH_FF86        =       tIrdaInitial[6];                
+C51 COMPILER V7.06   IR_NEC                                                                04/29/2010 18:06:05 PAGE 3   
+
+ 117   1              MCU_IR_DATA1_LENGTH_FF87        =       tIrdaInitial[7];
+ 118   1              
+ 119   1              MCU_IR_CTRL2_FF88                       =       tIrdaInitial[8];                
+ 120   1      
+ 121   1              MCU_IR_ONE_CMD_TIME_FF90        =       tIrdaInitial[9];                                                
+ 122   1              MCU_IR_IDLE_TIME_FF91           =       tIrdaInitial[10];                                               
+ 123   1              MCU_IR_CTRL3_FF92                       =       tIrdaInitial[11];                               
+ 124   1      
+ 125   1              MCU_IR_INTRQ_FF93                       =       0x00;//0x00;            
+ 126   1              MCU_IR_STATUS_FF89            |=   _BIT0;//|_BIT1;//enable IR
+ 127   1      }
+ 128          //--------------------------------------------------
+ 129          
+ 130          void CIrdaReadData(void)
+ 131          {       
+ 132   1              ucIrQueue[0] =  MCU_IR_DATA2_FF8C;
+ 133   1              ucIrQueue[1] =  MCU_IR_DATA3_FF8D;
+ 134   1              ucIrQueue[2] =  MCU_IR_DATA4_FF8E;
+ 135   1              ucIrQueue[3] =  MCU_IR_DATA5_FF8F;
+ 136   1      }
+ 137          //--------------------------------------------------
+ 138          
+ 139          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    342    ----
+   CONSTANT SIZE    =     70    ----
+   XDATA SIZE       =      6       2
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

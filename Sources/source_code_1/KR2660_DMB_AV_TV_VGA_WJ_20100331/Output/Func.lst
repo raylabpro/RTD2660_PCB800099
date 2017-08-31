@@ -1,0 +1,805 @@
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE FUNC
+OBJECT MODULE PLACED IN .\Output\Func.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Func\Func.C LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Outpu
+                    -t\Func.lst) OBJECT(.\Output\Func.obj)
+
+stmt level    source
+
+   1          #include "Core\Header\Include.h"
+   2          
+   3          //__________________________________________________________________________
+   4          //
+   5          //                         Audio func
+   6          //__________________________________________________________________________
+   7          
+   8          #if(AUDIO_TYPE == _AUDIO_PWM)
+   9          //==========================================================================
+  10          //                          CMuteOn
+  11          //==========================================================================
+  12          void CMuteOn(void)
+  13          {                                    
+  14   1          // Set Mute
+  15   1          if(_VOLUME_INV)        
+  16   1                      CSetPWM(bVOLUME_PWM,0xff);
+  17   1          else                    
+  18   1                      CSetPWM(bVOLUME_PWM,0x00);
+  19   1      
+  20   1          bMUTE = _MUTE_ON;
+  21   1       //   bAUDIO_PWR =  AUDIO_OFF;
+  22   1      
+  23   1      }
+  24          
+  25          //==========================================================================
+  26          //                          CMuteOff
+  27          //==========================================================================
+  28          void CMuteOff(void)
+  29          {
+  30   1          bMUTE = _MUTE_OFF;
+  31   1        //  bAUDIO_PWR =  AUDIO_ON;
+  32   1      
+  33   1      }
+  34          
+  35          //==========================================================================
+  36          //                               CSetVolume
+  37          //==========================================================================
+  38          void CSetVolume(void)
+  39          {
+  40   1          WORD iVolume;
+  41   1                         
+  42   1          if((GET_VOLUME() == 0) || (GET_AUDIO_MUTE() || ( ucCurrState == _NOSIGNAL_STATE)))
+  43   1          {
+  44   2             //  if(_VOLUME_INV)         CSetPWM(bVOLUME_PWM,0xff);
+  45   2               //else                    CSetPWM(bVOLUME_PWM,0x00);
+  46   2      
+  47   2               CMuteOn();
+  48   2               return;
+  49   2          }
+  50   1                         
+  51   1          CMuteOff();
+  52   1                                                                  
+  53   1          iVolume = (WORD)(_MAX_VOLUME - _MIN_VOLUME) * GET_VOLUME() / 100;
+  54   1      
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 2   
+
+  55   1          if(_VOLUME_INV == 0)
+  56   1              iVolume = _MAX_VOLUME - iVolume;
+  57   1          else
+  58   1              iVolume = _MIN_VOLUME + iVolume;
+  59   1            
+  60   1          CSetPWM(bVOLUME_PWM,iVolume);
+  61   1      }
+  62          #endif    // #if(AUDIO_TYPE == _AUDIO_PWM)
+  63          
+  64          #if(AUDIO_TYPE == _AUDIO_SC7313)
+              
+              //==========================================================================
+              //                           MUTE_ON
+              //==========================================================================
+              void CMuteOn(void)
+              { 
+              
+                      bMUTE = _MUTE_ON;
+              
+              
+              }
+              
+              //==========================================================================
+              //                           CMuteOff
+              //==========================================================================
+              void CMuteOff(void)
+              {
+              
+                      bMUTE = _MUTE_OFF;
+              }
+              
+              //==========================================================================
+              //                             CSetVolume
+              //==========================================================================
+              void CSetVolume(void)
+              {      
+                  if((GET_VOLUME() == 0) || (GET_AUDIO_MUTE()) || ( ucCurrState == _NOSIGNAL_STATE))
+                  {
+                       CMuteOn();
+                       return;
+                  }
+              
+              #if(_VIDEO_TV_SUPPORT)
+               #if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338 || _IF_PLL_DE_CHIP == _IF_PLL_DE_135X)
+                   if (_SOURCE_VIDEO_TV == _GET_INPUT_SOURCE() && bTVNoSignal == 1)
+                      return;
+               #endif
+              #endif
+                   CSetSc7313Volume(GET_VOLUME());
+              #if (_SOUND_PROCESSOR)
+                   CSetAudioProcessor(stAudioData.Balance, stAudioData.Bass, stAudioData.Treble);
+              #else
+                   CSetAudioProcessor(50, 50, 50);
+              #endif      
+              
+                   if (bMUTE)
+                       CMuteOff();
+              
+              }
+              
+              #endif          //#if(AUDIO_TYPE == _AUDIO_SC7313)
+ 116          
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 3   
+
+ 117          //==========================================================================
+ 118          //                         CInitSoundChannel 
+ 119          //==========================================================================
+ 120          void CInitSoundChannel(BYTE ucChannel)
+ 121          {
+ 122   1           CMuteOn();
+ 123   1             
+ 124   1           switch(ucChannel)
+ 125   1           {
+ 126   2      #if(_VGA_SUPPORT)
+ 127   2               case _SOURCE_VGA:
+ 128   2         #if(AUDIO_TYPE == _AUDIO_SC7313)
+                           CSelect7313SoundChannel(_7313_VGA_CHENNEL);
+                 #elif(AUDIO_TYPE == _AUDIO_PWM)  
+ 131   2                   _AUDIO_A = 1;
+ 132   2                   _AUDIO_B = 0;                     
+ 133   2         #endif
+ 134   2                   break;
+ 135   2                                    
+ 136   2               case _SOURCE_DVI:              
+ 137   2         #if(AUDIO_TYPE == _AUDIO_SC7313)
+                           CSelect7313SoundChannel(_7313_DVI_CHENNEL);
+                 #elif(AUDIO_TYPE == _AUDIO_PWM) 
+ 140   2                   _AUDIO_A = 1;
+ 141   2                   _AUDIO_B = 0; 
+ 142   2         #endif
+ 143   2                   break;
+ 144   2      #endif
+ 145   2                      case _SOURCE_YPBPR:     
+ 146   2                       #if(AUDIO_TYPE == _AUDIO_SC7313)
+                          CSelect7313SoundChannel(_7313_YPBPR_CHENNEL);
+                       #elif(AUDIO_TYPE == _AUDIO_PWM) 
+ 149   2                  _AUDIO_A = 0;
+ 150   2                  _AUDIO_B = 0;
+ 151   2               #endif
+ 152   2      
+ 153   2                   break;
+ 154   2      
+ 155   2                   
+ 156   2                      case _SOURCE_YPBPR1:     
+ 157   2                       #if(AUDIO_TYPE == _AUDIO_SC7313)
+                          CSelect7313SoundChannel(_7313_YPBPR_CHENNEL);
+                       #elif(AUDIO_TYPE == _AUDIO_PWM) 
+ 160   2                  _AUDIO_A = 0;
+ 161   2                  _AUDIO_B = 0;
+ 162   2               #endif
+ 163   2      
+ 164   2                   break;
+ 165   2      
+ 166   2      #if(_VIDEO_SUPPORT)
+ 167   2               case _SOURCE_VIDEO_AV:
+ 168   2         #if(AUDIO_TYPE == _AUDIO_SC7313)
+                           CSelect7313SoundChannel(_7313_AV_CHENNEL);
+                 #elif(AUDIO_TYPE == _AUDIO_PWM) 
+ 171   2      
+ 172   2                   _AUDIO_A = 0;
+ 173   2                   _AUDIO_B = 1;    
+ 174   2         #endif
+ 175   2                   break;
+ 176   2      
+ 177   2                case _SOURCE_VIDEO_SV:
+ 178   2      #if(AUDIO_TYPE == _AUDIO_SC7313)
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 4   
+
+                                CSelect7313SoundChannel(_7313_AV_CHENNEL);
+              #elif(AUDIO_TYPE == _AUDIO_PWM) 
+ 181   2      
+ 182   2                        _AUDIO_A = 0;
+ 183   2                        _AUDIO_B = 0;    
+ 184   2      #endif
+ 185   2                break;
+ 186   2      
+ 187   2      
+ 188   2      #endif
+ 189   2                       case _SOURCE_HDMI:
+ 190   2               case _SOURCE_VIDEO_YUV:
+ 191   2         #if(AUDIO_TYPE == _AUDIO_SC7313)
+                           CSelect7313SoundChannel(_7313_HDMI_CHENNEL);  // Only for PT2314
+                 #elif(AUDIO_TYPE == _AUDIO_PWM)  
+ 194   2                   _AUDIO_A = 0;
+ 195   2                   _AUDIO_B = 0;                      
+ 196   2         #endif
+ 197   2              break;
+ 198   2      
+ 199   2      #if(_VIDEO_TV_SUPPORT)
+ 200   2               case _SOURCE_VIDEO_TV:        
+ 201   2         #if(AUDIO_TYPE == _AUDIO_SC7313)
+                           CSelect7313SoundChannel(_7313_TV_CHENNEL);
+                 #elif(AUDIO_TYPE == _AUDIO_PWM)  
+ 204   2                   _AUDIO_A = 1;
+ 205   2                   _AUDIO_B = 1;                      
+ 206   2         #endif
+ 207   2                   break;
+ 208   2      #endif
+ 209   2      
+ 210   2           }
+ 211   1      }
+ 212          
+ 213          
+ 214          //==========================================================================
+ 215          //                          CGetCurrSourcePos
+ 216          //==========================================================================
+ 217          BYTE CGetCurrSourcePos(void)
+ 218          {
+ 219   1          if     (_GET_INPUT_SOURCE() == _SOURCE_0_TYPE)   return 0;
+ 220   1          else if(_GET_INPUT_SOURCE() == _SOURCE_1_TYPE)   return 1;
+ 221   1          else if(_GET_INPUT_SOURCE() == _SOURCE_2_TYPE)   return 2;
+ 222   1          else if(_GET_INPUT_SOURCE() == _SOURCE_3_TYPE)   return 3;
+ 223   1          else if(_GET_INPUT_SOURCE() == _SOURCE_4_TYPE)   return 4;
+ 224   1          else if(_GET_INPUT_SOURCE() == _SOURCE_5_TYPE)   return 5;
+ 225   1          else if(_GET_INPUT_SOURCE() == _SOURCE_6_TYPE)   return 6;
+ 226   1          else if(_GET_INPUT_SOURCE() == _SOURCE_7_TYPE)   return 7;
+ 227   1          else if(_GET_INPUT_SOURCE() == _SOURCE_8_TYPE)   return 8;
+ 228   1          else if(_GET_INPUT_SOURCE() == _SOURCE_9_TYPE)   return 9;
+ 229   1          else if(_GET_INPUT_SOURCE() == _SOURCE_10_TYPE)  return 10;
+ 230   1      
+ 231   1          return _NORMAL_SOURCE;
+ 232   1      }
+ 233          
+ 234          //==========================================================================
+ 235          //                          CSetCurrSource   
+ 236          //==========================================================================
+ 237          void CSetCurrSource(const BYTE ucCurrSource)
+ 238          {
+ 239   1          switch(ucCurrSource)
+ 240   1          {
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 5   
+
+ 241   2          case 0:    _SET_INPUT_SOURCE(_SOURCE_0_TYPE);    break;
+ 242   2          case 1:    _SET_INPUT_SOURCE(_SOURCE_1_TYPE);    break;
+ 243   2          case 2:    _SET_INPUT_SOURCE(_SOURCE_2_TYPE);    break;
+ 244   2          case 3:    _SET_INPUT_SOURCE(_SOURCE_3_TYPE);    break;
+ 245   2          case 4:    _SET_INPUT_SOURCE(_SOURCE_4_TYPE);    break;
+ 246   2          case 5:    _SET_INPUT_SOURCE(_SOURCE_5_TYPE);    break;
+ 247   2          case 6:    _SET_INPUT_SOURCE(_SOURCE_6_TYPE);    break;
+ 248   2          case 7:    _SET_INPUT_SOURCE(_SOURCE_7_TYPE);    break;
+ 249   2          case 8:    _SET_INPUT_SOURCE(_SOURCE_8_TYPE);    break;
+ 250   2          case 9:    _SET_INPUT_SOURCE(_SOURCE_9_TYPE);    break;
+ 251   2          case 10:   _SET_INPUT_SOURCE(_SOURCE_10_TYPE);   break;
+ 252   2          }
+ 253   1      }
+ 254          
+ 255          //==========================================================================
+ 256          //                           bCurrSourceSupport
+ 257          //==========================================================================
+ 258          bit bCurrSourceSupport(const BYTE ucSource)
+ 259          {
+ 260   1          BYTE ucSourceTemp;
+ 261   1      
+ 262   1          switch(ucSource)
+ 263   1          {
+ 264   2          case 0:   ucSourceTemp = _SOURCE_0_TYPE;     break;
+ 265   2          case 1:   ucSourceTemp = _SOURCE_1_TYPE;     break;
+ 266   2          case 2:   ucSourceTemp = _SOURCE_2_TYPE;     break;
+ 267   2          case 3:   ucSourceTemp = _SOURCE_3_TYPE;     break;
+ 268   2          case 4:   ucSourceTemp = _SOURCE_4_TYPE;     break;
+ 269   2          case 5:   ucSourceTemp = _SOURCE_5_TYPE;     break;
+ 270   2          case 6:   ucSourceTemp = _SOURCE_6_TYPE;     break;
+ 271   2          case 7:   ucSourceTemp = _SOURCE_7_TYPE;     break;
+ 272   2          case 8:   ucSourceTemp = _SOURCE_8_TYPE;     break;
+ 273   2          case 9:   ucSourceTemp = _SOURCE_9_TYPE;     break;
+ 274   2          case 10:  ucSourceTemp = _SOURCE_10_TYPE;    break;
+ 275   2          }
+ 276   1      
+ 277   1          switch(ucSourceTemp)
+ 278   1          {
+ 279   2      #if (_VGA_SUPPORT)
+ 280   2          case _SOURCE_VGA:          return 1;
+ 281   2      #endif
+ 282   2      
+ 283   2      #if (_TMDS_SUPPORT)
+                  case _SOURCE_DVI:          return 1;
+              #endif
+ 286   2      
+ 287   2      #if (_VIDEO_AV_SUPPORT)
+ 288   2          case _SOURCE_VIDEO_AV:     return 1;
+ 289   2      #endif
+ 290   2      
+ 291   2      #if (_VIDEO_SV_SUPPORT)
+ 292   2          case _SOURCE_VIDEO_SV:     return 1;
+ 293   2      #endif
+ 294   2      
+ 295   2      #if (_VIDEO_YUV_SUPPORT)
+                  case _SOURCE_VIDEO_YUV:    return 1;
+              #endif
+ 298   2      
+ 299   2      #if (_VIDEO_TV_SUPPORT)
+ 300   2          case _SOURCE_VIDEO_TV:     return 1;
+ 301   2      #endif
+ 302   2      
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 6   
+
+ 303   2      #if (_VIDEO_SCART_SUPPORT)
+                  case _SOURCE_VIDEO_SCART:  return 1;
+              #endif
+ 306   2      
+ 307   2      #if (_HDMI_SUPPORT)
+                  case _SOURCE_HDMI:         return 1;
+              #endif
+ 310   2      
+ 311   2      #if (_YPBPR_SUPPORT)
+                  case _SOURCE_YPBPR:        return 1;
+              #endif
+ 314   2      
+ 315   2      #if (_YPBPR1_SUPPORT)
+                  case _SOURCE_YPBPR1:        return 1;
+              #endif
+ 318   2          }
+ 319   1      
+ 320   1          return 0;
+ 321   1      }
+ 322          
+ 323          //==========================================================================
+ 324          //                          bChangeSource
+ 325          //==========================================================================
+ 326          bit bChangeSource(void)
+ 327          {
+ 328   1          bit bSourceSelect = 0;
+ 329   1          BYTE i;
+ 330   1      
+ 331   1          for (i = (CGetCurrSourcePos() + 1); i < _INPUT_PORT_NUM; i++)
+ 332   1          {
+ 333   2               if (bCurrSourceSupport(i))
+ 334   2               {
+ 335   3                   bSourceSelect = 1;
+ 336   3                   break;
+ 337   3               }
+ 338   2          }
+ 339   1      
+ 340   1          if (0 == bSourceSelect)  // Source not change
+ 341   1          {
+ 342   2              for (i = 0; i < CGetCurrSourcePos(); i++)
+ 343   2              {
+ 344   3                  if (bCurrSourceSupport(i))
+ 345   3                  {
+ 346   4                      bSourceSelect = 1;
+ 347   4                      break;
+ 348   4                  }
+ 349   3               }
+ 350   2          }
+ 351   1      
+ 352   1      
+ 353   1          if (bSourceSelect && i != CGetCurrSourcePos())
+ 354   1          {
+ 355   2              CSetCurrSource(i);
+ 356   2              CInitInputSource();
+ 357   2              return 1;
+ 358   2          }
+ 359   1      
+ 360   1          return 0;
+ 361   1      }
+ 362          
+ 363          
+ 364          //==========================================================================
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 7   
+
+ 365          //                          CInitInputSource
+ 366          //==========================================================================
+ 367          void CInitInputSource(void)
+ 368          {
+ 369   1      #if(_HDMI_SUPPORT && _HDCP_SUPPORT == _ON && _HDMI_HOT_PLUG_OPTION)
+                      bDVIDetect = 0;
+                      
+                      if(_GET_INPUT_SOURCE()==_SOURCE_HDMI || _GET_INPUT_SOURCE()==_SOURCE_DVI)
+                      {
+                              bHot_Plug = _HOT_PLUG_LOW;
+                              bHot_Plug2 = _HOT_PLUG_LOW;     
+                              CTimerDelayXms(100);   //20070714 gary for HDMI compatibility problem
+                              bHot_Plug = _HOT_PLUG_HI;
+                              bHot_Plug2 = _HOT_PLUG_HI;      
+                      }
+                      else
+                      {
+                              //bHot_Plug = _HOT_PLUG_HI;
+                              //bHot_Plug2 = _HOT_PLUG_HI;            
+                              bHot_Plug = _HOT_PLUG_LOW;
+                              bHot_Plug2 = _HOT_PLUG_LOW;     
+                              
+                      }
+              #endif
+ 389   1      
+ 390   1          TUNER_PWR_OFF();
+ 391   1      
+ 392   1      #if(OEM_TYPE == RTD2660_VGA_AV_MP5_DMB) //VGA+AV1+MP5+DMB
+ 393   1          switch(_GET_INPUT_SOURCE()) 
+ 394   1          {
+ 395   2            //VGA    
+ 396   2                   #if(_VGA_SUPPORT)
+ 397   2                    case _SOURCE_VGA:
+ 398   2                       bAML8613_PWR = AML8613_OFF;
+ 399   2                       bDTV_PWR = DTV_OFF;
+ 400   2                        break;
+ 401   2                   #endif
+ 402   2            //AV1
+ 403   2                   #if(_VIDEO_AV_SUPPORT)
+ 404   2                    case _SOURCE_VIDEO_AV:
+ 405   2                        kx_CSelectVideoChannel(_AV_CHANNEL, 0);
+ 406   2                       bAML8613_PWR = AML8613_OFF;
+ 407   2                       bDTV_PWR = DTV_OFF;
+ 408   2                        break;
+ 409   2                   #endif
+ 410   2           //MP5
+ 411   2                   #if(_VIDEO_SV_SUPPORT)
+ 412   2                    case _SOURCE_VIDEO_SV:
+ 413   2                        kx_CSelectVideoChannel(_SV_CHANNEL, 0);
+ 414   2                               bAML8613_PWR = AML8613_ON;
+ 415   2                               bDTV_PWR = DTV_OFF;
+ 416   2                        break;
+ 417   2                   #endif
+ 418   2            //DMB
+ 419   2                   #if(_VIDEO_TV_SUPPORT)
+ 420   2                    case _SOURCE_VIDEO_TV:
+ 421   2                        kx_CSelectVideoChannel(_TV_CHANNEL, 0);
+ 422   2                       bAML8613_PWR = AML8613_OFF;    
+ 423   2                       bDTV_PWR = DTV_ON;
+ 424   2                        if (ucCurrState != _SOURCE_CHANGE_STATE && ucOsdEventMsg != _CHANGE_SOURCE_MSG)
+ 425   2                            CInitTV();
+ 426   2                        break;
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 8   
+
+ 427   2                   #endif
+ 428   2                               
+ 429   2             //UNDER NO USE   
+ 430   2                  #if(_VIDEO_YUV_SUPPORT)
+                            case _SOURCE_VIDEO_YUV:
+                                break;
+                          #endif
+ 434   2                
+ 435   2                  #if(_VIDEO_SCART_SUPPORT)
+                            case _SOURCE_VIDEO_SCART:break;                  
+                          #endif 
+ 438   2                  #if(_HDMI_SUPPORT == _ON)
+                            case _SOURCE_HDMI:break;
+                          #endif
+ 441   2                  #if(_YPBPR_SUPPORT)
+                            case _SOURCE_YPBPR: break;
+                           #endif
+ 444   2                  #if(_YPBPR1_SUPPORT)
+                            case _SOURCE_YPBPR1: bYpbprPort = YPBPR2_ON; break;
+                          #endif
+ 447   2      
+ 448   2          }  
+ 449   1              
+ 450   1      #elif(OEM_TYPE == RTD2660_VGA_AV_MP5)//VGA+AV1+MP5
+                  switch(_GET_INPUT_SOURCE()) 
+                  {
+                    //VGA    
+                           #if(_VGA_SUPPORT)
+                            case _SOURCE_VGA:
+                                break;
+                           #endif
+                    //AV1
+                           #if(_VIDEO_AV_SUPPORT)
+                            case _SOURCE_VIDEO_AV:
+                                kx_CSelectVideoChannel(_AV_CHANNEL, 0);
+                                break;
+                           #endif
+                   //MP5
+                           #if(_VIDEO_SV_SUPPORT)
+                            case _SOURCE_VIDEO_SV:
+                                kx_CSelectVideoChannel(_SV_CHANNEL, 0);
+                                break;
+                           #endif
+                    //TV
+                           #if(_VIDEO_TV_SUPPORT)
+                            case _SOURCE_VIDEO_TV:
+                                kx_CSelectVideoChannel(_TV_CHANNEL, 0);
+                                if (ucCurrState != _SOURCE_CHANGE_STATE && ucOsdEventMsg != _CHANGE_SOURCE_MSG)
+                                    CInitTV();
+                                break;
+                           #endif
+                                       
+                     //UNDER NO USE   
+                          #if(_VIDEO_YUV_SUPPORT)
+                            case _SOURCE_VIDEO_YUV:
+                                break;
+                          #endif
+                        
+                          #if(_VIDEO_SCART_SUPPORT)
+                            case _SOURCE_VIDEO_SCART:break;                  
+                          #endif 
+                          #if(_HDMI_SUPPORT == _ON)
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 9   
+
+                            case _SOURCE_HDMI:break;
+                          #endif
+                          #if(_YPBPR_SUPPORT)
+                            case _SOURCE_YPBPR: break;
+                           #endif
+                          #if(_YPBPR1_SUPPORT)
+                            case _SOURCE_YPBPR1: bYpbprPort = YPBPR2_ON; break;
+                          #endif
+              
+                  }
+              #endif
+ 500   1          CInitSoundChannel(_GET_INPUT_SOURCE());
+ 501   1      
+ 502   1      #if(_VIDEO_TV_SUPPORT)
+ 503   1       #if(_SLEEP_FUNC)
+ 504   1          _SET_POWER_DOWN_TIME(0);
+ 505   1          ucAutoPowerDownTime = 0xff;
+ 506   1          CEepromSaveTvData();
+ 507   1       #endif
+ 508   1      #endif
+ 509   1      
+ 510   1      #if(_DE_INTERLACE_SUPPORT == _ON && _DE_INTERLACE_TEST_OPTION==_ENABLE)
+ 511   1          if (bSourceVideo())
+ 512   1              bDIstatus = 1;
+ 513   1          else
+ 514   1              bDIstatus = 0; 
+ 515   1      #endif
+ 516   1      }
+ 517          //==========================================================================
+ 518          void DoSetBackColor(void)
+ 519          {
+ 520   1              BYTE r = 0;
+ 521   1              BYTE g = 0;
+ 522   1              BYTE b = 0;
+ 523   1      
+ 524   1              switch(GET_BACKGROUNDCOLOE())
+ 525   1              {
+ 526   2                      case _RED:                      r = 0xFF;                                       break;
+ 527   2                      case _GREEN:            g = 0xFF;                                       break;
+ 528   2                      case _BLUE:                     
+ 529   2                      default:
+ 530   2                                                              b = 0xFF;                                       break;
+ 531   2              }
+ 532   1      
+ 533   1              CAdjustBackgroundColor(r, g, b);
+ 534   1      }
+ 535          
+ 536          
+ 537          BYTE CGetInputSourceNum(BYTE ucInputSource)
+ 538          {
+ 539   1          switch(ucInputSource)
+ 540   1          {
+ 541   2              default:
+ 542   2              case _SOURCE_VGA:
+ 543   2                  return 0;
+ 544   2      
+ 545   2      #if(_TMDS_SUPPORT || _HDMI_SUPPORT)
+                      case _SOURCE_DVI:
+                      case _SOURCE_HDMI:
+                          return 1;
+              #endif
+ 550   2      
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 10  
+
+ 551   2      #if(_VIDEO_SUPPORT)
+ 552   2              case _SOURCE_VIDEO_AV:
+ 553   2              case _SOURCE_VIDEO_SV:
+ 554   2              case _SOURCE_VIDEO_YUV:
+ 555   2              case _SOURCE_VIDEO_TV:
+ 556   2              case _SOURCE_VIDEO_SCART:
+ 557   2                  return 2;
+ 558   2      #endif
+ 559   2      
+ 560   2              case _SOURCE_YPBPR:
+ 561   2              case _SOURCE_YPBPR1:
+ 562   2                  return 3;
+ 563   2         }
+ 564   1      }
+ 565          //--------------------------------------------------
+ 566          
+ 567          void MemoryCpy(BYTE *Obj,BYTE *Src,BYTE ucCnt)
+ 568          {
+ 569   1              while(ucCnt--)
+ 570   1              {
+ 571   2                      *Obj++ = *Src++;
+ 572   2              }
+ 573   1      }
+ 574          //------------------------------------------------------------------------
+ 575          
+ 576          
+ 577          void SetPanelLR(void)
+ 578          {
+ 579   1              if(GET_LR_SWAP())
+ 580   1                      bPanel_LR = 0;
+ 581   1              else
+ 582   1                      bPanel_LR = 1;
+ 583   1      }
+ 584          //------------------------------------------------------------------------
+ 585          void SetPanelUD(void)
+ 586          {
+ 587   1              bPanel_UD = GET_UD_SWAP();
+ 588   1      }
+ 589          
+ 590          //------------------------------------------------------------------------
+ 591          BYTE code tFMTable[][5] = 
+ 592          {
+ 593          //      D0      D1      D2      D3      D4
+ 594                  {0,     0,      0,      0,      0},     // 0x00
+ 595                  {1,     0,      0,      0,      0},     // 0x01
+ 596                  {0,     0,      0,      0,      1},     // 0x02
+ 597                  {0,     1,      0,      0,      0},     // 0x03
+ 598                  {1,     0,      0,      0,      1},     // 0x04
+ 599                  {1,     1,      0,      0,      0},     // 0x05
+ 600                  {0,     1,      0,      0,      1},     // 0x06
+ 601                  {0,     0,      1,      0,      0},     // 0x07
+ 602                  {1,     1,      0,      0,      1},     // 0x08
+ 603                  {1,     0,      1,      0,      0},     // 0x09
+ 604                  {0,     0,      1,      0,      1},     // 0x0a
+ 605                  {0,     1,      1,      0,      0},     // 0x0b
+ 606                  {1,     0,      1,      0,      1},     // 0x0c
+ 607                  {1,     1,      1,      0,      0},     // 0x0d
+ 608                  {0,     1,      1,      0,      1},     // 0x0e
+ 609                  {1,     1,      1,      0,      1},     // 0x0f
+ 610                  {1,     1,      1,      1,      1},     // 0x10
+ 611          
+ 612          
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 11  
+
+ 613          };
+ 614          //------------------------------------------------------------------------
+ 615          
+ 616          void SetFM(void)
+ 617          {
+ 618   1              BYTE ucFMIndex = 0;
+ 619   1              bD0 = tFMTable[ucFMIndex][0];
+ 620   1              bD1 = tFMTable[ucFMIndex][1];
+ 621   1              bD2 = tFMTable[ucFMIndex][2];
+ 622   1              bD3 = tFMTable[ucFMIndex][3];
+ 623   1              bD4 = tFMTable[ucFMIndex][4];
+ 624   1      
+ 625   1      }
+ 626          //-----------------------------------------------------------------------
+ 627          
+ 628          void CInitFM(void)
+ 629          {
+ 630   1      //      bFMPower = 0;   
+ 631   1              IE = 0;
+ 632   1              Delay5us();
+ 633   1              Delay5us();
+ 634   1              CI2cWriteFM(0,0x5e,0x00);
+ 635   1              CI2cWriteFM(1,0x03,0xB8);
+ 636   1              CI2cWriteFM(2,0x27,0xD3);
+ 637   1              CI2cWriteFM(3,0x01,0xC5);
+ 638   1              CI2cWriteFM(4,0x4E,0x03);
+ 639   1              CI2cWriteFM(5,0x9C,0xA0);///Adjust the Fre
+ 640   1              CI2cWriteFM(6,0x88,0x06);//Adjust the Fre
+ 641   1              CI2cWriteFM(7,0x59,0x2C);
+ 642   1              CI2cWriteFM(8,0x08,0x81);
+ 643   1              CI2cWriteFM(9,0x02,0x46);
+ 644   1              CI2cWriteFM(10,0x00,0x68);
+ 645   1              CI2cWriteFM(11,0x40,0x18);
+ 646   1              CI2cWriteFM(12,0x10,0x83);
+ 647   1              
+ 648   1              CI2cWriteFM(13,0x06,0x02);
+ 649   1              CI2cWriteFM(14,0xE6,0xDB);
+ 650   1              CI2cWriteFM(15,0x00,0x03);
+ 651   1              CI2cWriteFM(16,0x00,0x00);
+ 652   1              CI2cWriteFM(17,0x00,0x00);
+ 653   1              CI2cWriteFM(18,0x00,0x00);
+ 654   1              CI2cWriteFM(19,0x00,0x00);
+ 655   1              IE      = 0x8a;                        
+ 656   1      }
+ 657          
+ 658          
+ 659          void CSetFMFreq(BYTE ucFreq)
+ 660          {
+ 661   1          WORD RFFreq   = 0;
+ 662   1              switch(ucFreq)
+ 663   1              {
+ 664   2          case 0x00: // FM off
+ 665   2              RFFreq   = 0;
+ 666   2              break;
+ 667   2      
+ 668   2          case 0x01: // FM off
+ 669   2              RFFreq   = 0;
+ 670   2              break;
+ 671   2      
+ 672   2          case 0x02: // 87.7
+ 673   2              RFFreq   = 877;
+ 674   2              break;
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 12  
+
+ 675   2      
+ 676   2          case 0x03: // 87.9
+ 677   2              RFFreq   = 879;
+ 678   2              break;
+ 679   2      
+ 680   2          case 0x04: // 88.0
+ 681   2              RFFreq   = 880;
+ 682   2              break;
+ 683   2      
+ 684   2          case 0x05: // 88.1
+ 685   2              RFFreq   = 881;
+ 686   2              break;
+ 687   2      
+ 688   2          case 0x06: // 88.2
+ 689   2              RFFreq   = 882;
+ 690   2              break;
+ 691   2      
+ 692   2           case 0x07: // 88.3
+ 693   2              RFFreq   = 883;
+ 694   2              break;
+ 695   2      
+ 696   2          case 0x08: // 88.4
+ 697   2              RFFreq   = 884;
+ 698   2              break;
+ 699   2      
+ 700   2          case 0x09: // 88.5
+ 701   2              RFFreq   = 885;
+ 702   2              break;
+ 703   2      
+ 704   2          case 0x0A: // 88.6
+ 705   2              RFFreq   = 886;
+ 706   2              break;
+ 707   2      
+ 708   2          case 0x0B: // 88.7
+ 709   2              RFFreq   = 887;
+ 710   2              break;
+ 711   2      
+ 712   2          case 0x0C: // 88.8
+ 713   2              RFFreq   = 888;
+ 714   2              break;
+ 715   2      
+ 716   2          case 0x0D:  // 88.9
+ 717   2              RFFreq   = 889;
+ 718   2              break;
+ 719   2      
+ 720   2          case 0x0E: // 89.0
+ 721   2              RFFreq   = 890;
+ 722   2              break;
+ 723   2      
+ 724   2          case 0x0F: // 89.1
+ 725   2              RFFreq   = 891;
+ 726   2              break;
+ 727   2      
+ 728   2          case 0x10: // 89.2
+ 729   2              RFFreq   = 892;
+ 730   2              break;
+ 731   2                      
+ 732   2          case 0x11: // 89.4
+ 733   2              RFFreq   = 894;
+ 734   2              break;          
+ 735   2              }
+ 736   1              CInitFM();
+C51 COMPILER V7.06   FUNC                                                                  04/29/2010 18:06:06 PAGE 13  
+
+ 737   1              IE      = 0;                        
+ 738   1              AS6300_Set_Freq(RFFreq);   
+ 739   1              IE      = 0x8a;     
+ 740   1              FMAudioTran();
+ 741   1      }
+ 742          void FMAudioTran(void)
+ 743          {
+ 744   1                      if(0x01!=_GET_FM_STATE())  
+ 745   1                       {
+ 746   2                               if(_VOLUME_INV)                 
+ 747   2                                      CSetPWM(bVOLUME_PWM,0x00);
+ 748   2                               else                                    
+ 749   2                                      CSetPWM(bVOLUME_PWM,0xFF);
+ 750   2                       }
+ 751   1                      else
+ 752   1                       {
+ 753   2                              CSetVolume();
+ 754   2                       }
+ 755   1      }
+ 756          
+ 757          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1373    ----
+   CONSTANT SIZE    =     85    ----
+   XDATA SIZE       =   ----      10
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

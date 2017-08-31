@@ -1,0 +1,1 @@
+"Core\code\L51_BANK.A51" SET (LARGE) DEBUG PRINT(.\Output\L51_BANK.lst) OBJECT(.\Output\L51_BANK.obj) EP

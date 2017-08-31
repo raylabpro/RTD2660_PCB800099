@@ -1,0 +1,305 @@
+#include "Core\Header\Include.h"
+
+#if(_TV_CHIP == _TV_JS_6AM)
+
+
+
+
+
+ 
+//==========================================================================
+//                            kx_CI2CWriteIfPllDM
+//==========================================================================
+void kx_CI2CWriteIfPllDM(BYTE ucTvType, const bit bTunerMute, const BYTE ucAFTMode)
+{
+    if (ucTvType && bTunerMute && ucAFTMode);
+}
+
+//==========================================================================
+//                         kx_CSetTuner
+//==========================================================================
+void kx_CSetTuner(BYTE ucTunerAddress, WORD Freq)
+{	   
+   pData[0] = 8;
+   pData[1] = ucTunerAddress;
+   ((WORD *)pData)[1] = Freq;
+
+   pData[4] = _TUNER_CONTROL_BYTE1; 
+  
+   if(Freq < _VHF_LOW_BAND)  
+      pData[5]=_TUNER_LOW_BAND;   // VHFLOW   
+   else if(Freq < _VHF_HIGH_BAND)
+      pData[5]=_TUNER_MID_BAND;  // VHFHIGH 
+   else 
+      pData[5]=_TUNER_HIGH_BAND;  //Band select//UHF 
+   pData[6]=_TUNER_CONTROL_BYTE3;
+   pData[7]=_TUNER_CONTROL_BYTE4;
+
+   kx_CWriteTuner(pData);
+}
+
+//==========================================================================
+//                         CTvAutoSearch
+//==========================================================================
+void CTvAutoSearch(void) small
+{
+    BYTE ucSound = 0;
+    WORD iFreq   = 0;
+    bit bTVType  = _GET_TV_TYPE();
+         
+    ucTVType = _TV_NTSC_M;
+    CMuteOn();
+
+    // Reset search max tv channel number
+    _SET_MAX_CHANNEL(1);
+    stTvInfo.CurChn = (_GET_TV_TYPE() == _TV_CATV) ? 1 : 2;
+	ucPrevChannel   = stTvInfo.CurChn;
+    // Save current channel
+    CEepromSaveTvData();
+
+    kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _TUNNING_MODE);
+    CTimerDelayXms(8);
+    CShowAutoSerachTotal(0);   // Show search tv channel number
+                    
+#if(_AUTO_SERACH_METHOD == _AUTO_SEARCH_METHOD_1)
+    CScalerSetBit(_VDISP_CTRL_28, ~_BIT5, 0x00); 
+#endif
+
+	CScalerPageSelect(_PAGE9);		
+    CScalerSetByte(_P9_C_LOCK_CONF_B6, 0x6B);
+    CTimerDelayXms(200);
+
+    while(1)
+    {
+        iFreq = CLockChannel(stTvInfo.CurChn, 1);
+
+        if(iFreq == 0xFFFF)
+        {
+            break;
+        }
+    }  // End while
+
+
+    // Save search channel number
+    pData[0] = (_GET_TV_TYPE() == _TV_CATV) ? _CATV_MAX_CHANNEL : _AIR_MAX_CHANNEL;
+    _SET_MAX_CHANNEL(pData[0]);
+    CEepromSaveTvData();
+
+    CSetTVChannel(stTvInfo.CurChn);
+
+
+#if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338 || _IF_PLL_DE_CHIP == _IF_PLL_DE_135X)
+    kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_OFF, _NORMAL_MODE); // set tv system
+#endif
+
+    ucCurrState = _SEARCH_STATE;
+}
+
+//==========================================================================
+//bSearchAction:   0 --> Search down
+//                 1 --> Search up
+//==========================================================================
+void CManualSearch(const bit bSearchAction, const BYTE ucCurrentChannel) small
+{
+    BYTE ucSound           = 0;
+    WORD iFreq             = 0;
+   
+    CMuteOn();
+	CScalerPageSelect(_PAGE9);		
+    CScalerSetByte(_P9_C_LOCK_CONF_B6, 0x6B);
+
+#if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338 || _IF_PLL_DE_CHIP == _IF_PLL_DE_135X)
+    kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _TUNNING_MODE);
+    CTimerDelayXms(100);
+#endif
+
+    if (bSearchAction)
+    {
+       if (ucCurrentChannel < _GET_MAX_CHANNEL())
+	       iFreq = CLockChannel(ucCurrentChannel+1, 1);
+       else
+           iFreq = 0xFFFF;
+    }
+	else 
+    {
+        if (ucCurrentChannel == 0)  
+           iFreq = 0xFFFF;
+       else
+    	   iFreq = CLockChannel(ucCurrentChannel-1, 0);
+    }
+
+    if (iFreq == 0xFFFF)
+        CSetTVChannel(ucCurrentChannel);
+
+    CShowAutoSearchSliderInOSD(_GET_CH_FREQ());                         
+
+    CTimerDelayXms(50);
+    if (kx_CVideoModeLocked())
+        CScalerSetBit(_VDISP_CTRL_28, ~_BIT5, 0x00); 
+
+//	CTimerReactiveTimerEvent(SEC(GET_OSDTIMEOUT()), COsdFxExitEvent);
+
+#if(_IF_PLL_DE_CHIP == _IF_PLL_DE_1338 || _IF_PLL_DE_CHIP == _IF_PLL_DE_135X)
+    kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_OFF, _NORMAL_MODE);
+#endif
+   // CModeResetTVMode();
+    ucCurrState = _SEARCH_STATE;
+}
+
+//==========================================================================
+//  bCLockMode --> 1: lock up         0 : lock down
+//==========================================================================
+WORD CLockChannel(WORD iStartFreq, const bit bCLockMode) small
+{
+    BYTE ucPRG          = 0;
+    BYTE count          = 0;
+    BYTE rData          = 0;
+    WORD iStartFreqBase = iStartFreq;
+    WORD iMaxChannel    = 0;
+    bit bTVMode         = _GET_TV_TYPE();
+
+    iMaxChannel = ((bTVMode == _TV_CATV) ? _CATV_MAX_CHANNEL : _AIR_MAX_CHANNEL) - 1;
+
+    while(1)                   
+    {
+        kx_CSetTuner(_ADDR_TUNER, (bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq]);
+      
+
+        if(CKeyStopAutoSearch())
+           return 0xFFFF;
+                          
+        // Show search channel state 
+        CShowAutoSearchSliderInOSD(((bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq])); 
+
+        while(1)//(count = 0; count < 5; count++)
+        {
+            CTimerDelayXms(100);
+
+            if (CDetectTVSignalType())
+            {
+                WORD iFreqTemp = (bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq];
+
+                _SET_CH_FREQ(iFreqTemp);
+                _SET_CH_SKIP(0);
+                CSaveTVModeData(iStartFreq);
+                if (ucPRG == 0)
+                    stTvInfo.CurChn = iStartFreq;
+
+                ucPRG++;
+
+                CShowAutoSerachTotal(ucPRG);  // Show search tv channel number
+                break;
+            }
+            
+            count++;
+            if (count >= 5) 
+            {
+                WORD iFreqTemp = (bTVMode == _TV_CATV) ? tNTSC_CATV[iStartFreq] : tNTSC_AIR[iStartFreq];
+
+                _SET_CH_FREQ(iFreqTemp);
+                _SET_CH_SKIP(1);
+                CSaveTVModeData(iStartFreq);
+                break;
+            }
+        }
+  
+        if (bCLockMode) // Search up
+        {
+            iStartFreq++;
+            if (iStartFreq > iMaxChannel)
+                return 0xFFFF;
+        }
+        else            // Search down
+        {
+            if (iStartFreq == 0) 
+                return 0xFFFF;
+
+            iStartFreq--;
+        }
+    }
+    return 0xFFFF;  //Not Find Channel
+}
+
+//==========================================================================
+//                        CSetTVChannel
+//==========================================================================
+void CSetTVChannel(const BYTE ucCurrentChannel)
+{  
+    CLoadTVModeData(ucCurrentChannel);    
+        
+    kx_CSetTuner(_ADDR_TUNER, _GET_CH_FREQ());
+    CTimerDelayXms(20);
+#if (_TV_AFC)
+    CurrAFCFreq = _GET_CH_FREQ();
+    AFCState    = _TV_AFC_START;
+#endif
+
+    CSetTvColor(ucTVType);
+    if (bChangeChannel == 1)
+    {
+	    CVideoSoftReset();
+	    CTimerDelayXms(600);
+    }
+    ucTVSyncFailCount = 251;
+}
+#if (_TV_AFC)
+//==========================================================================
+//                        CTVAFC
+//==========================================================================
+void CTVAFC(void)
+{
+    BYTE rData = 0;
+
+    if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_TV ||
+        ucOsdState != _MI_MENU_NONE || bTVNoSignal == 1 || !GET_AFC_MODE())
+       return;
+
+    if (_TV_AFC_TIMEOUT == AFCState)
+    {
+        CLoadTVModeData(ucCurrentChannel);    
+        kx_CSetTuner(_ADDR_TUNER, _GET_CH_FREQ());
+        AFCState = _TV_AFC_STOP;
+    }
+    else if(_TV_AFC_STOP == AFCState)
+    {
+        return;
+    }
+
+    rData = kx_CReadIfPllDM();
+
+    switch((rData >> 1) & 0x0f)
+    {
+    case 8:  // > +187.5KHz
+    case 9:  //   +162.5KHz
+    case 10: //   +137.5KHz
+    case 11: //   +112.5KHz
+    case 12: //   +87.5KHz
+    case 13: //   +62.5KHz
+        if (CurrAFCFreq)
+            CurrAFCFreq--;
+        kx_CSetTuner(_ADDR_TUNER, CurrAFCFreq);
+        break;
+
+    case 2:  //   -62.5KHz
+    case 3:  //   -87.5KHz
+    case 4:  //   -112.5KHz
+    case 5:  //   -137.5KHz
+    case 6:  //   -162.5KHz
+    case 7:  // > -187.5KHz
+        CurrAFCFreq++;
+        kx_CSetTuner(_ADDR_TUNER, CurrAFCFreq);
+        break;
+
+    case 0:   // -12.5KHz
+    case 1:   // -37.5KHz
+    case 14:  // +37.5KHz
+    case 15:  // +12.5KHz
+        return;
+    }
+
+    AFCState++;
+}
+#endif //_TV_AFC
+
+#endif // #if(_TV_CHIP == _TV_JS_6AM)
+

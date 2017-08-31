@@ -1,0 +1,8 @@
+---- tTTL_INITIAL Matches (7 in 4 files) ----
+PNL_AT102TN03.h (panel):BYTE code tTTL_INITIAL[] =
+PNL_AT102TN03.h (panel):extern BYTE code tTTL_INITIAL[];
+PNL_HSD070IDW1.h (panel):BYTE code tTTL_INITIAL[] =
+PNL_HSD070IDW1.h (panel):extern BYTE code tTTL_INITIAL[];
+PNL_TM150XG.h (panel):BYTE code tTTL_INITIAL[] =
+PNL_TM150XG.h (panel):extern BYTE code tTTL_INITIAL[];
+Scaler.c (core\code\rtd2662):    CScalerCodeW(tTTL_INITIAL);

@@ -1,0 +1,342 @@
+C51 COMPILER V7.06   KXEXTENDFUNC                                                          04/29/2010 18:06:18 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE KXEXTENDFUNC
+OBJECT MODULE PLACED IN .\Output\KxExtendFunc.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE DDCCI\KxExtendFunc.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRIN
+                    -T(.\Output\KxExtendFunc.lst) OBJECT(.\Output\KxExtendFunc.obj)
+
+stmt level    source
+
+   1          #define __KX_EXTENDFUNC__
+   2          
+   3          #include "Core\Header\Include.h"
+   4          
+   5          
+   6          //------------------------------------------------------------------------
+   7          
+   8          void KxEFGetRealAddress(void)                           // data count 8
+   9          {
+  10   1              ucDDCCI_TxBuf[3] = ((DWORD)_EXTFUNC_REAL_BEGIN_ADDRESS >> 24);
+  11   1              ucDDCCI_TxBuf[4] = ((DWORD)_EXTFUNC_REAL_BEGIN_ADDRESS >> 16);
+  12   1              ucDDCCI_TxBuf[5] = ((DWORD)_EXTFUNC_REAL_BEGIN_ADDRESS >> 8);
+  13   1              ucDDCCI_TxBuf[6] = ((DWORD)_EXTFUNC_REAL_BEGIN_ADDRESS);
+  14   1      
+  15   1              ucDDCCI_TxBuf[7] = ((DWORD)_EXTFUNC_REAL_END_ADDRESS >> 24);
+  16   1              ucDDCCI_TxBuf[8] = ((DWORD)_EXTFUNC_REAL_END_ADDRESS >> 16);
+  17   1              ucDDCCI_TxBuf[9] = ((DWORD)_EXTFUNC_REAL_END_ADDRESS >> 8);
+  18   1              ucDDCCI_TxBuf[10] = ((DWORD)_EXTFUNC_REAL_END_ADDRESS);
+  19   1      
+  20   1              
+  21   1      }
+  22          //------------------------------------------------------------------------
+  23          void KxEFGetLogoInfo(void)                      // data count 3
+  24          {
+  25   1              ucDDCCI_TxBuf[3] = tEFLogoInfo.Support;
+  26   1              ucDDCCI_TxBuf[4] = (tEFLogoInfo.Offset >> 8);
+  27   1              ucDDCCI_TxBuf[5] = (tEFLogoInfo.Offset);
+  28   1              
+  29   1      }
+  30          //------------------------------------------------------------------------
+  31          void KxEFGetEdidGroupCnt(void)                  // data count 1
+  32          {
+  33   1              ucDDCCI_TxBuf[3] = g_EFEdidGroupCnt;
+  34   1      }
+  35          //------------------------------------------------------------------------
+  36          void KxEFGetEdidInfo(BYTE ucIndex)                      // data count 20
+  37          {
+  38   1              ucDDCCI_TxBuf[3] = tEFEdids[ucIndex].Support;
+  39   1      
+  40   1              ucDDCCI_TxBuf[4] = (tEFEdids[ucIndex].Offset >> 8);
+  41   1              ucDDCCI_TxBuf[5] = (tEFEdids[ucIndex].Offset);
+  42   1      
+  43   1              MemoryCpy(&ucDDCCI_TxBuf[5],tEFEdids[ucIndex].Name,16);
+  44   1      
+  45   1              ucDDCCI_TxBuf[22] = tEFEdids[ucIndex].Type;
+  46   1              
+  47   1              
+  48   1      }
+  49          //------------------------------------------------------------------------
+  50          void KxEFGetIRInfo(void)                        // data count 4
+  51          {
+  52   1      
+  53   1              ucDDCCI_TxBuf[3] = tEFIR.Support;
+  54   1      
+C51 COMPILER V7.06   KXEXTENDFUNC                                                          04/29/2010 18:06:18 PAGE 2   
+
+  55   1              ucDDCCI_TxBuf[4] = (tEFIR.Offset >> 8);
+  56   1              ucDDCCI_TxBuf[5] = tEFIR.Offset;
+  57   1              ucDDCCI_TxBuf[6] = tEFIR.KeyCount;
+  58   1      }
+  59          //------------------------------------------------------------------------
+  60          
+  61          
+  62          void KxEFGetIRKeyInfo(BYTE ucIndex)                     // data count 17
+  63          {
+  64   1              MemoryCpy(&ucDDCCI_TxBuf[3],tEFIRKeys[ucIndex].Name,16);
+  65   1      
+  66   1              ucDDCCI_TxBuf[19] = tEFIRKeys[ucIndex].KeyMessage;
+  67   1              
+  68   1      }
+  69          //------------------------------------------------------------------------
+  70          void KxEFGetIRValue(BYTE *p)
+  71          {
+  72   1              BYTE ucIrdaStatus = MCU_IR_STATUS_FF89;
+  73   1              
+  74   1              if (ucIrdaStatus & (_BIT4 | _BIT3))
+  75   1              {
+  76   2                      *p++ = MCU_IR_DATA2_FF8C;
+  77   2                      *p++ = MCU_IR_DATA3_FF8D;
+  78   2                      *p++ = MCU_IR_DATA4_FF8E;
+  79   2                      *p++ = MCU_IR_DATA5_FF8F;
+  80   2              }
+  81   1              else
+  82   1              {
+  83   2                      *p++ = 0x00;
+  84   2                      *p++ = 0x00;
+  85   2                      *p++ = 0x00;
+  86   2                      *p++ = 0x00;
+  87   2                      
+  88   2              }
+  89   1      }
+  90          //------------------------------------------------------------------------
+  91          void KxEFGetSDKeyInfo(void)                     // data count 4
+  92          {
+  93   1      
+  94   1              ucDDCCI_TxBuf[3] = tEFSDKeyInf.Support;
+  95   1      
+  96   1              ucDDCCI_TxBuf[4] = (tEFSDKeyInf.Offset >> 8);
+  97   1              ucDDCCI_TxBuf[5] = tEFSDKeyInf.Offset;
+  98   1              ucDDCCI_TxBuf[6] = tEFSDKeyInf.KeyCount;
+  99   1      }
+ 100          //------------------------------------------------------------------------
+ 101          
+ 102          void KxEFGetOneSDKeyInfo(BYTE ucIndex) // data count 17
+ 103          {
+ 104   1              MemoryCpy(&ucDDCCI_TxBuf[3],tEFSDKey[ucIndex].Name,16);
+ 105   1      
+ 106   1              ucDDCCI_TxBuf[19] = tEFSDKey[ucIndex].KeyMessage;
+ 107   1              
+ 108   1      }
+ 109          //------------------------------------------------------------------------
+ 110          void KxEFGetSDKeyMask(void)
+ 111          {
+ 112   1              ucDDCCI_TxBuf[3] = CKeyScanIO();
+ 113   1      }
+ 114          //------------------------------------------------------------------------
+ 115          
+ 116          
+C51 COMPILER V7.06   KXEXTENDFUNC                                                          04/29/2010 18:06:18 PAGE 3   
+
+ 117          
+ 118          void KxEFGetADPortInfo(void)                    // data count 5
+ 119          {
+ 120   1              ucDDCCI_TxBuf[3] = tEFADC.Support;
+ 121   1      
+ 122   1              ucDDCCI_TxBuf[4] = (tEFADC.Offset >> 8);
+ 123   1              ucDDCCI_TxBuf[5] = tEFADC.Offset;
+ 124   1              ucDDCCI_TxBuf[6] = tEFADC.ADIOCount;
+ 125   1              ucDDCCI_TxBuf[7] = tEFADC.ADKeyCount;
+ 126   1      }
+ 127          //------------------------------------------------------------------------
+ 128          void KxEFGetADKeyInfo(BYTE ucIndex)                     // data count 17
+ 129          {
+ 130   1              MemoryCpy(&ucDDCCI_TxBuf[3],tEFIRKeys[ucIndex].Name,16);
+ 131   1      
+ 132   1              ucDDCCI_TxBuf[19] = tEFIRKeys[ucIndex].KeyMessage;
+ 133   1      }
+ 134          //------------------------------------------------------------------------
+ 135          void KxEFGetADCValue(BYTE *p)
+ 136          {
+ 137   1              MCU_ADC_ACONTROL_FF08 = 0x82;                   //start adc convert(STRT_ADC_ACKT=1) 
+ 138   1              MCU_ADC_BCONTROL_FF0E = 0x82;                   //start adc convert(STRT_ADC_ACKT=1) 
+ 139   1      
+ 140   1              while(MCU_ADC_ACONTROL_FF08 & 0x80)
+ 141   1              {
+ 142   2                      _nop_();
+ 143   2              }
+ 144   1      
+ 145   1      
+ 146   1              *p++ = MCU_ADC_A0_CONVERT_RESULT_FF09 >> 2;     
+ 147   1              *p++ = MCU_ADC_A1_CONVERT_RESULT_FF0A >> 2;     
+ 148   1              *p++ = MCU_ADC_A2_CONVERT_RESULT_FF0B >> 2;     
+ 149   1              *p++ = MCU_ADC_A3_CONVERT_RESULT_FF0C >> 2;     
+ 150   1              *p++ = MCU_ADC_A4_CONVERT_RESULT_FF0D >> 2;     
+ 151   1      
+ 152   1      
+ 153   1              //只取高 8 位，低二位忽略
+ 154   1              while(MCU_ADC_BCONTROL_FF0E & 0x80)
+ 155   1              {
+ 156   2                      _nop_();
+ 157   2              }
+ 158   1      
+ 159   1              *p++ = ADC_B0H_convert_result_FF15;                     
+ 160   1              *p++ = ADC_B1H_convert_result_FF16;     
+ 161   1              *p++ = ADC_B2H_convert_result_FF17;     
+ 162   1      }
+ 163          //------------------------------------------------------------------------
+ 164          void KxEFPanelInfo(void)                        // data count 3
+ 165          {
+ 166   1              ucDDCCI_TxBuf[3] = tEFPanel.Support;
+ 167   1      
+ 168   1              ucDDCCI_TxBuf[4] = (tEFPanel.Offset >> 8);
+ 169   1              ucDDCCI_TxBuf[5] = tEFPanel.Offset;
+ 170   1      }
+ 171          //------------------------------------------------------------------------
+ 172          void KxEFGetOtherFuncCnt(void)                  // data count 1
+ 173          {
+ 174   1              ucDDCCI_TxBuf[3] = g_EFOtherCnt;
+ 175   1      }
+ 176          //------------------------------------------------------------------------
+ 177          void KxEFGetOtherFuncInfo(BYTE ucIndex)                 // data count 20
+ 178          {
+C51 COMPILER V7.06   KXEXTENDFUNC                                                          04/29/2010 18:06:18 PAGE 4   
+
+ 179   1              ucDDCCI_TxBuf[3] = tEFOtherFunc[ucIndex].Support;
+ 180   1      
+ 181   1              ucDDCCI_TxBuf[4] = (tEFOtherFunc[ucIndex].Offset >> 8);
+ 182   1              ucDDCCI_TxBuf[5] = (tEFOtherFunc[ucIndex].Offset);
+ 183   1      
+ 184   1              MemoryCpy(&ucDDCCI_TxBuf[5],tEFOtherFunc[ucIndex].Name,16);
+ 185   1      
+ 186   1              ucDDCCI_TxBuf[22] = tEFOtherFunc[ucIndex].DefaultValue;
+ 187   1      }
+ 188          //------------------------------------------------------------------------
+ 189          
+ 190          
+ 191          
+ 192          
+ 193          
+ 194          
+ 195          //------------------------------------------------------------------------
+ 196          BYTE ScanExtendIR(void)
+ 197          {
+ 198   1      
+ 199   1              BYTE ucIRCode; 
+ 200   1          BYTE ucIRMessage = _NONE_KEY_MESSAGE;
+ 201   1          BYTE code *pIRTable = _EF_IR_KEYMSG_ADDRESS;
+ 202   1      
+ 203   1              if((pIRTable[0] == ucIrQueue[0]) && (pIRTable[1] == ucIrQueue[1]))
+ 204   1              {
+ 205   2                      pIRTable += 2;
+ 206   2                      
+ 207   2                      if(ucIrQueue[2] == (~ucIrQueue[3])) 
+ 208   2                      {
+ 209   3                              ucIRCode = ucIrQueue[2];
+ 210   3      
+ 211   3                              // Search key message
+ 212   3                              while(1)
+ 213   3                              {
+ 214   4                                      if((pIRTable[0] == 0) && (pIRTable[1] == 0))
+ 215   4                                      {
+ 216   5                                              break;
+ 217   5                                      }
+ 218   4      
+ 219   4                                      if (ucIRCode == pIRTable[0])
+ 220   4                                      {
+ 221   5                                              ucIRMessage = pIRTable[1];
+ 222   5                                              break;
+ 223   5                                      }
+ 224   4      
+ 225   4                                      pIRTable += 2;
+ 226   4      
+ 227   4                              }
+ 228   3      
+ 229   3                              ucRepKeyCount = 0;
+ 230   3                      }
+ 231   2              } 
+ 232   1              
+ 233   1              return ucIRMessage;
+ 234   1      }
+ 235          //------------------------------------------------------------------------
+ 236          void GetExtendEnable(void)
+ 237          {
+ 238   1              BYTE code *p = _EF_IR_ENABLE_ADDRESS;
+ 239   1      
+ 240   1              // iR 
+C51 COMPILER V7.06   KXEXTENDFUNC                                                          04/29/2010 18:06:18 PAGE 5   
+
+ 241   1             if(*p == 0xFF)
+ 242   1                      g_bUsePresetIR = 1;
+ 243   1              else 
+ 244   1                      g_bUsePresetIR = 0;
+ 245   1      
+ 246   1          // sdkey
+ 247   1              p = _EF_SDKEY_ENABLE_ADDRESS;
+ 248   1      
+ 249   1              if(*p == 0xFF)
+ 250   1                      g_bUsePresetKey = 1;
+ 251   1              else g_bUsePresetKey = 0;
+ 252   1              
+ 253   1          
+ 254   1          // logo
+ 255   1              p = _EF_LOGO_ENABLE_ADDRESS;
+ 256   1      
+ 257   1              if(*p == 0xFF)
+ 258   1                      g_fUserPresetLogo = 1;
+ 259   1              else
+ 260   1                      g_fUserPresetLogo = 0;
+ 261   1          
+ 262   1              
+ 263   1      }
+ 264          //------------------------------------------------------------------------
+ 265          
+ 266          BYTE CIOMaskToKeyMaskExt(BYTE ucIOMask)
+ 267          {
+ 268   1              BYTE code *p = _EF_SDKEY_KEYMSG_ADDRESS;
+ 269   1              BYTE ucKeyState = _NONE_KEY_MASK;
+ 270   1              
+ 271   1              while(1)
+ 272   1              {
+ 273   2                      if(p[0] == 0xFF && p[1] == 0xFF)
+ 274   2                              break;
+ 275   2      
+ 276   2                      if(ucIOMask & p[1])
+ 277   2                              ucKeyState |= p[0];     
+ 278   2      
+ 279   2                      p += 2;
+ 280   2              }
+ 281   1      
+ 282   1              return ucKeyState;
+ 283   1      }
+ 284          //--------------------------------------------------
+ 285          WORD KxEFLogo1BitAddress(void)
+ 286          {
+ 287   1          WORD *p = _EF_LOGO_SAVE_1BITFONT_ADDRESS;
+ 288   1          WORD usAddress = _EF_LOGO_BEGIN_ADDRESS + (*p);
+ 289   1          return usAddress;
+ 290   1      }
+ 291          //--------------------------------------------------
+ 292          WORD KxEFLogo2BitAddress(void)
+ 293          {
+ 294   1          WORD *p = _EF_LOGO_SAVE_2BITFONT_ADDRESS;
+ 295   1          WORD usAddress = _EF_LOGO_BEGIN_ADDRESS + (*p);
+ 296   1          return usAddress;
+ 297   1      }
+ 298          //--------------------------------------------------
+ 299          WORD KxEFLogo4BitAddress(void)
+ 300          {
+ 301   1          WORD *p = _EF_LOGO_SAVE_4BITFONT_ADDRESS;
+ 302   1          WORD usAddress = _EF_LOGO_BEGIN_ADDRESS + (*p);
+C51 COMPILER V7.06   KXEXTENDFUNC                                                          04/29/2010 18:06:18 PAGE 6   
+
+ 303   1          return usAddress;
+ 304   1      
+ 305   1      }
+ 306          //--------------------------------------------------
+ 307          
+ 308          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1007    ----
+   CONSTANT SIZE    =    818    ----
+   XDATA SIZE       =   ----      11
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

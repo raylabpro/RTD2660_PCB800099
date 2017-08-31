@@ -1,0 +1,66 @@
+C51 COMPILER V7.06   STRUCT                                                                04/29/2010 18:05:56 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE STRUCT
+OBJECT MODULE PLACED IN .\Output\Struct.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\Struct.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(
+                    -.\Output\Struct.lst) OBJECT(.\Output\Struct.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Struct.c No.0000
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #include "Core\Header\Include.h"
+   8          
+   9          
+  10          //--------------------------------------------------
+  11          // Global Variables
+  12          //--------------------------------------------------
+  13          StructModeUserDataType                  xdata   stModeUserData;
+  14          StructModeUserCenterDataType            xdata   stModeUserCenterData;
+  15          StructSystemDataType                    xdata   stSystemData;
+  16          StructOsdUserDataType                   xdata   stOsdUserData;
+  17          StructAdcDataType                       xdata   stAdcData;
+  18          StructYPbPrDataType                     xdata   stYPbPrData;
+  19          StructColorProc0DataType                xdata   stConBriData;
+  20          StructColorProc1DataType                xdata   stColorTempData;
+  21          ModeInformationType                     idata   stModeInfo;
+  22          DisplayTableType                        idata   stDisplayInfo;
+  23          StructTvDataType                                        xdata   stTvInfo;
+  24          StructAudioDataType                                     xdata   stAudioData;
+  25          StructHueSaturationDataType             xdata   stHueSatData;
+  26          StructTvInformationData             xdata   stTVChannelInfo;
+  27          
+  28          
+  29          code StructICMColor stICMColor =
+  30          {
+  31              _ICM_R_HUE,
+  32              _ICM_R_SAT,
+  33              _ICM_G_HUE,
+  34              _ICM_G_SAT,
+  35              _ICM_B_HUE,
+  36              _ICM_B_SAT,
+  37              _ICM_Y_HUE,
+  38              _ICM_Y_SAT,
+  39              _ICM_C_HUE,
+  40              _ICM_C_SAT,
+  41          };
+  42          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =     10    ----
+   XDATA SIZE       =     66    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =     30    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

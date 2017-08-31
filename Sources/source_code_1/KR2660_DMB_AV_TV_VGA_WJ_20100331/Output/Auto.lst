@@ -1,0 +1,1885 @@
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE AUTO
+OBJECT MODULE PLACED IN .\Output\Auto.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\Auto.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\
+                    -Output\Auto.lst) OBJECT(.\Output\Auto.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Auto.c No.0002
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __AUTO__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          //--------------------------------------------------
+  12          // Description  : Auto clock, phase and H,V position
+  13          // Input Value  : None
+  14          // Output Value : _ERROR_SUCCESS if succeed
+  15          //--------------------------------------------------
+  16          BYTE CAutoDoAutoConfig(void)
+  17          {
+  18   1          BYTE result, phasetemp, watchdogtemp;
+  19   1      
+  20   1          bDoAutoConfigFlag = _TRUE;
+  21   1          CScalerRead(_WATCH_DOG_CTRL0_0C, 1, &watchdogtemp, _NON_AUTOINC);
+  22   1          CScalerSetByte(_WATCH_DOG_CTRL0_0C, 0x00);
+  23   1      
+  24   1          // Save current phase
+  25   1          phasetemp = stModeUserData.Phase;
+  26   1      
+  27   1          // Clear the HW auto status to prevent some un-expected event happened
+  28   1          CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x00);
+  29   1          CMiscClearStatusRegister();
+  30   1          result  = CAutoDoAutoPosition();
+  31   1      
+  32   1          if(result == _ERROR_SUCCESS)
+  33   1          {
+  34   2              result  = CAutoDoAutoClock();
+  35   2              if(result == _ERROR_SUCCESS)
+  36   2              {
+  37   3                  result  = CAutoDoAutoPhase();
+  38   3                  if((result == _ERROR_SUCCESS) || (result == _ERROR_PHASE))
+  39   3                  {
+  40   4                      if(result == _ERROR_PHASE)
+  41   4                      {
+  42   5                          stModeUserData.Phase = phasetemp;
+  43   5                          CAdjustPhase(stModeUserData.Phase);
+  44   5                      }
+  45   4                      result  = CAutoDoAutoPosition();
+  46   4                      if(result != _ERROR_SUCCESS)
+  47   4                      {
+  48   5                          stModeUserData.HPosition = stModeInfo.IHStartPos;
+  49   5                          stModeUserData.VPosition = stModeInfo.IVStartPos;
+  50   5                          CAdjustHPosition();
+  51   5                          CAdjustVPosition();
+  52   5                      }
+  53   4                  }
+  54   3                  else
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 2   
+
+  55   3                  {
+  56   4                      // If auto phase is failed, load phase setting before auto config
+  57   4                      stModeUserData.Phase = phasetemp;
+  58   4                      CAdjustPhase(stModeUserData.Phase);
+  59   4                  }
+  60   3              }
+  61   2              else
+  62   2              {
+  63   3                  // If auto clock is failed, load default clock setting
+  64   3                  stModeUserData.Clock = stModeInfo.IHTotal;
+  65   3                  stModeUserData.HPosition = stModeInfo.IHStartPos;
+  66   3                  stModeUserData.VPosition = stModeInfo.IVStartPos;
+  67   3                  //080324
+  68   3                  ///CAdjustAdcClock(stModeUserData.Clock);
+  69   3                  CAdjustAdcClock(stModeUserData.Clock, 2);
+  70   3                  CAdjustHPosition();
+  71   3                  CAdjustVPosition();
+  72   3              }
+  73   2          }
+  74   1          else
+  75   1          {
+  76   2              stModeUserData.HPosition = stModeInfo.IHStartPos;
+  77   2              stModeUserData.VPosition = stModeInfo.IVStartPos;
+  78   2              CAdjustHPosition();
+  79   2              CAdjustVPosition();
+  80   2          }
+  81   1      
+  82   1          if((result == _ERROR_SUCCESS) || (result == _ERROR_ABORT))
+  83   1          {
+  84   2      
+  85   2              // Save auto result
+  86   2              CEepromSaveModeData(stModeInfo.ModeCurr);
+  87   2              CAdjustUpdateCenterData();
+  88   2              CEepromSaveCenterModeData(stModeInfo.ModeCurr);
+  89   2          }       
+  90   1          bDoAutoConfigFlag = _FALSE;
+  91   1          CScalerSetByte(_WATCH_DOG_CTRL0_0C, watchdogtemp);
+  92   1          CMiscClearStatusRegister();
+  93   1      
+  94   1          return result;
+  95   1      }
+  96          
+  97          //--------------------------------------------------
+  98          // Description  : Auto color ( white balance )
+  99          // Input Value  : None
+ 100          // Output Value : _ERROR_SUCCESS if succeed
+ 101          //--------------------------------------------------
+ 102          BYTE CAutoDoWhiteBalance(void)
+ 103          {
+ 104   1          BYTE result;
+ 105   1      #if(_YPBPR_AUTO_TYPE == _NEW_TYPE)
+ 106   1        #if(_YPBPR_SUPPORT)
+                  if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)    
+                      result = CAutoTuneBalanceNew(); 
+                  else
+                #endif
+ 111   1              result = CAutoTuneBalance();
+ 112   1      #else//_YPBPR_AUTO_TYPE==_ORIGINAL_TYPE
+                  result = CAutoTuneBalance();
+              #endif
+ 115   1          if(result == _ERROR_SUCCESS)
+ 116   1              CEepromSaveAdcData();
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 3   
+
+ 117   1          else
+ 118   1          {
+ 119   2              if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+ 120   2                  CEepromLoadAdcDataDefault();
+ 121   2              else
+ 122   2                  CEepromLoadYPbPrDataDefault();
+ 123   2          }
+ 124   1          if(bSourceVideo())
+ 125   1              CEepromSaveSystemData();
+ 126   1          return result;
+ 127   1      }
+ 128          
+ 129          //--------------------------------------------------
+ 130          // Description  : Wait auto measure process completed
+ 131          // Input Value  : None
+ 132          // Output Value : Return result _ERROR_INPUT, _ERROR_SUCCESS
+ 133          //--------------------------------------------------
+ 134          BYTE CAutoWaitFinish(void)
+ 135          {
+ 136   1          BYTE timeoutcnt, ivsevent;
+ 137   1          BYTE valuetemp;//tommy add 070608
+ 138   1      
+ 139   1          CMiscClearStatusRegister();
+ 140   1          // Auto timeout
+ 141   1      #if 1
+ 142   1          //{ add 070608
+ 143   1          //tommy liao add for prevent (ADD PC_AUTOADJUST ITEM) ERROR
+ 144   1          //tommy add for prevent execute funtion of (COsdMenuAutoAdjust) error
+ 145   1          //warning!!!!!!!!!!!!,don't delete the below function
+ 146   1          //warning!!!!!!!!!!!!,or if you change ,can cause serious error,can cause system error 
+ 147   1          CScalerRead(_AUTO_ADJ_CTRL0_7A, 1, &valuetemp, _AUTOINC);
+ 148   1          valuetemp = (valuetemp&0x03);
+ 149   1          if( valuetemp == 0x03 )
+ 150   1              timeoutcnt = 150;
+ 151   1          else
+ 152   1              timeoutcnt = 50;
+ 153   1          //warning!!!!!!!!!!!!,don't delete the up function
+ 154   1          //} add 070608
+ 155   1      #else
+                  //tommy delete
+                  //timeoutcnt   = (CScalerGetBit(_AUTO_ADJ_CTRL0_7A, _BIT1 | _BIT0) == 0x03) ? 150 : 50;
+              #endif
+ 159   1          // IVS timeout
+ 160   1          ivsevent     = 25;
+ 161   1      
+ 162   1          do
+ 163   1          {
+ 164   2              CTimerDelayXms(1);
+ 165   2              CScalerRead(_STATUS1_03, 1, pData, _NON_AUTOINC);
+ 166   2              if(pData[0] & _EVENT_IVS)
+ 167   2              {
+ 168   3                  CScalerSetByte(_STATUS1_03, 0x00);
+ 169   3                  ivsevent = 25;
+ 170   3              }
+ 171   2              else
+ 172   2              {
+ 173   3                  ivsevent = ivsevent - 1;
+ 174   3              }
+ 175   2              if((ivsevent == 0) || (pData[0] & (_EVENT_UNDERFLOW | _EVENT_OVERFLOW)))
+ 176   2              {
+ 177   3                  return _ERROR_INPUT;
+ 178   3              }
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 4   
+
+ 179   2      
+ 180   2              // Power off while auto config--------
+ 181   2      //        CKeyCheckPowerKey(); cancel by weihao 940926
+ 182   2      
+ 183   2              if(GET_POWERSWITCH())
+ 184   2                  return _ERROR_INPUT;
+ 185   2              //------------------------------------
+ 186   2              CScalerRead(_AUTO_ADJ_CTRL1_7D, 1, pData, _NON_AUTOINC);
+ 187   2          }
+ 188   1          while((pData[0] & 0x01) && (--timeoutcnt));
+ 189   1      
+ 190   1          CScalerRead(_STATUS0_02, 1, pData, _NON_AUTOINC);
+ 191   1          CScalerSetByte(_STATUS0_02, 0x00);
+ 192   1      
+ 193   1          // Return non-zero value in Data[0] if :
+ 194   1          // 1. IVS or IHS changed
+ 195   1          // 2. Auto-Phase Tracking timeout
+ 196   1          return ((pData[0] & 0x63) || (0 == timeoutcnt)) ? _ERROR_INPUT : _ERROR_SUCCESS;
+ 197   1      }
+ 198          
+ 199          //--------------------------------------------------
+ 200          // Description  : Wait for IVS process
+ 201          // Input Value  : ucTimes   --> frames
+ 202          // Output Value : Return underflow/overflow status
+ 203          //--------------------------------------------------
+ 204          BYTE CAutoWaitForIVS(BYTE ucTimes)
+ 205          {
+ 206   1          BYTE timeoutcnt;
+ 207   1      
+ 208   1          timeoutcnt = 25;
+ 209   1          CScalerSetByte(_STATUS1_03, 0x00);
+ 210   1          do
+ 211   1          {
+ 212   2              CTimerDelayXms(1);
+ 213   2              CScalerRead(_STATUS1_03, 1, pData, _NON_AUTOINC);
+ 214   2              pData[0] &= (_EVENT_IVS | _EVENT_UNDERFLOW | _EVENT_OVERFLOW);
+ 215   2              if(((pData[0] & _EVENT_IVS) == _EVENT_IVS) && (ucTimes != 0))
+ 216   2              {
+ 217   3                  CScalerSetByte(_STATUS1_03, 0x00);
+ 218   3                  ucTimes--;
+ 219   3                  timeoutcnt = 25;
+ 220   3              }
+ 221   2          }
+ 222   1          while((ucTimes != 0) && (--timeoutcnt) && ((pData[0] & (_EVENT_UNDERFLOW | _EVENT_OVERFLOW)) == 0));
+ 223   1      
+ 224   1          return pData[0];
+ 225   1      }
+ 226          
+ 227          //--------------------------------------------------
+ 228          // Description  : Measure position H
+ 229          // Input Value  : ucNoiseMarginH    --> Noise margin for H
+ 230          // Output Value : Measure status
+ 231          //--------------------------------------------------
+ 232          BYTE CAutoMeasurePositionH(BYTE ucNoiseMarginH)
+ 233          {
+ 234   1          WORD lbound, rbound;
+ 235   1      
+ 236   1          rbound  = stModeUserData.Clock;                                               // Totol Clock Number
+ 237   1          lbound  = (DWORD)rbound * stModeInfo.IHSyncPulseCount / stModeInfo.IHCount;   // Clock number in HSYNC
+             - pulse
+ 238   1          CScalerSetBit(_VGIP_HV_DELAY_1E, 0x0f, 0x50);
+ 239   1          rbound  = (rbound + _MEASURE_HDEALY) - 2;
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 5   
+
+ 240   1          rbound  = rbound - 32;
+ 241   1          lbound  = (lbound + 20 + _MEASURE_HDEALY) < stModeInfo.IHStartPos ? (lbound + 20 + _MEASURE_HDEALY) : 
+             -0x0001;
+ 242   1          lbound  = (lbound > 32) ? (lbound - 32) : 0x0001;
+ 243   1          ucNoiseMarginH  &= 0xfc;
+ 244   1          pData[0]    = ((lbound >> 4) & 0x70) | (HIBYTE(rbound) & 0x0f);
+ 245   1          pData[1]    = (LOBYTE(lbound));
+ 246   1          pData[2]    = (LOBYTE(rbound));
+ 247   1          CScalerWrite(_H_BOUNDARY_H_70, 3, pData, _AUTOINC);
+ 248   1          pData[0]    = ucNoiseMarginH;
+ 249   1          pData[1]    = ucNoiseMarginH;
+ 250   1          pData[2]    = ucNoiseMarginH;
+ 251   1          pData[3]    = 0x00;
+ 252   1          pData[4]    = 0x00;
+ 253   1          pData[5]    = 0x00;
+ 254   1          pData[6]    = 0x00;
+ 255   1          pData[7]    = 0x01;
+ 256   1          CScalerWrite(_RED_NOISE_MARGIN_76, 8, pData, _AUTOINC);
+ 257   1          pData[0]    = CAutoWaitFinish();
+ 258   1          if(pData[0] != _ERROR_SUCCESS)
+ 259   1              return pData[0];
+ 260   1          CScalerRead(_H_START_END_H_81, 3, &pData[8], _AUTOINC);
+ 261   1          usHStartPos = (((WORD)(pData[8] & 0xf0 ) << 4) | (WORD)pData[9]) + 32;
+ 262   1          usHEndPos   = (((WORD)(pData[8] & 0x0f ) << 8) | (WORD)pData[10]) + 32;
+ 263   1          return _ERROR_SUCCESS;
+ 264   1      }
+ 265          
+ 266          //--------------------------------------------------
+ 267          // Description  : Measure position V
+ 268          // Input Value  : ucNoiseMarginV    --> Noise margin for V
+ 269          // Output Value : Measure status
+ 270          //--------------------------------------------------
+ 271          BYTE CAutoMeasurePositionV(BYTE ucNoiseMarginV)
+ 272          {
+ 273   1          WORD lbound, rbound;
+ 274   1      
+ 275   1          rbound  = stModeUserData.Clock;                                               // Totol Clock Number
+ 276   1          lbound  = (DWORD)rbound * stModeInfo.IHSyncPulseCount / stModeInfo.IHCount;   // Clock number in HSYNC
+             - pulse
+ 277   1          CScalerSetBit(_VGIP_HV_DELAY_1E, 0x0f, 0x50);
+ 278   1          rbound  = (rbound + _MEASURE_HDEALY) - 2;
+ 279   1          rbound  = rbound - 32;
+ 280   1          lbound  = (lbound + 20 + _MEASURE_HDEALY) < stModeInfo.IHStartPos ? (lbound + 20 + _MEASURE_HDEALY) : 
+             -0x0001;
+ 281   1          lbound  = (lbound > 32) ? (lbound - 32) : 0x0001;
+ 282   1          ucNoiseMarginV  &= 0xfc;
+ 283   1          pData[0]    = ((lbound >> 4) & 0x70) | (HIBYTE(rbound) & 0x0f);
+ 284   1          pData[1]    = (LOBYTE(lbound));
+ 285   1          pData[2]    = (LOBYTE(rbound));
+ 286   1          pData[3]    = (HIBYTE(stModeInfo.IVTotal - 1 + 3) & 0x0f);
+ 287   1          pData[4]    = (0x02);
+ 288   1          pData[5]    = (LOBYTE(stModeInfo.IVTotal - 1 + 3));
+ 289   1          CScalerWrite(_H_BOUNDARY_H_70, 6, pData, _AUTOINC);
+ 290   1          pData[0]    = ucNoiseMarginV;
+ 291   1          pData[1]    = ucNoiseMarginV;
+ 292   1          pData[2]    = ucNoiseMarginV;
+ 293   1          pData[3]    = 0x00;
+ 294   1          pData[4]    = 0x00;
+ 295   1          pData[5]    = 0x00;
+ 296   1          pData[6]    = 0x00;
+ 297   1          pData[7]    = 0x01;
+ 298   1          CScalerWrite(_RED_NOISE_MARGIN_76, 8, pData, _AUTOINC);
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 6   
+
+ 299   1          pData[0]    = CAutoWaitFinish();
+ 300   1          if(pData[0] != _ERROR_SUCCESS)
+ 301   1              return pData[0];
+ 302   1          CScalerRead(_V_START_END_H_7E, 3, &pData[8], _AUTOINC);
+ 303   1          usVStartPos = (((WORD)(pData[8] & 0xf0 ) << 4) | (WORD)pData[9]) + 3;
+ 304   1          usVEndPos   = (((WORD)(pData[8] & 0x0f ) << 8) | (WORD)pData[10]) + 3;
+ 305   1          // Check all black
+ 306   1          if(usVEndPos == 0x0000)
+ 307   1              return  _ERROR_ABORT;
+ 308   1          // Update auto-tracking window vertical range
+ 309   1          pData[0]    = (pData[8] & 0x7f);
+ 310   1          pData[1]    = pData[9];
+ 311   1          pData[2]    = pData[10];
+ 312   1          CScalerWrite(_V_BOUNDARY_H_73, 3, pData, _AUTOINC);
+ 313   1          return _ERROR_SUCCESS;
+ 314   1      }
+ 315          
+ 316          //--------------------------------------------------
+ 317          // Description  : Auto phase search function
+ 318          // Input Value  :
+ 319          // Output Value :
+ 320          //--------------------------------------------------
+ 321          DWORD CAutoPhaseSearch(BYTE ucSelColor, BYTE ucSelStep, BYTE ucSelStepNum, BYTE ucSelStepStart, BYTE *ucPh
+             -aseResult)
+ 322          {
+ 323   1          DWORD maxsum;
+ 324   1          BYTE  count, best;
+ 325   1      
+ 326   1          CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x00);
+ 327   1          CScalerSetBit(_AUTO_ADJ_CTRL0_7A, ~(_BIT1 | _BIT0), ucSelColor & 0x03);
+ 328   1          // Issac : Because H/W auto phase search may cause underflow at start and stop,
+ 329   1          //         frame-sync watch-dog must be disabled.
+ 330   1          //CAdjustDisableWatchDog(_WD_ALL);
+ 331   1      
+ 332   1          if(((DWORD)stModeInfo.IHFreq * stModeInfo.IHTotal / 1000) < 530){
+ 333   2              ucSelStep += 1;
+ 334   2              ucSelStepStart *= 2;
+ 335   2              CScalerPageSelect(_PAGE1);
+ 336   2              if (ucSelStepStart >= 64)
+ 337   2                  CScalerSetBit(_P1_MIX_B0, ~_BIT1, _BIT1);
+ 338   2          }
+ 339   1          CScalerSetByte(_HW_AUTO_PHASE_CTRL0_7B, (ucSelStep & 0x07) | (((ucSelStepNum - 1) & 0x1f) << 3));
+ 340   1          CScalerSetByte(_HW_AUTO_PHASE_CTRL1_7C, 0x00 | (ucSelStepStart & 0x3f));
+ 341   1          ucSelStep   = (0x01 << ucSelStep);
+ 342   1          ucSelColor  = ucSelStepStart + (ucSelStepNum) * ucSelStep;
+ 343   1          count       = ucSelStepStart;
+ 344   1          maxsum      = 0;
+ 345   1          best        = 0;
+ 346   1          // Issac : Using Wait_For_Event(EVENT_IVS) instead of Wait_For_IVS().
+ 347   1          //         Because H/W auto phase search may cause underflow at start and stop.
+ 348   1          //         Wait_For_Event() will not check underflow/overflow.
+ 349   1          CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x7b);
+ 350   1          CAutoWaitForIVS(1);
+ 351   1          do
+ 352   1          {
+ 353   2              if(CAutoWaitForIVS(((CScalerGetBit(_AUTO_ADJ_CTRL0_7A, _BIT1 | _BIT0) == 0x03) ? 3 : 1)) & (_EVENT
+             -_UNDERFLOW | _EVENT_OVERFLOW))
+ 354   2              {
+ 355   3                  CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x00);
+ 356   3                  CScalerPageSelect(_PAGE1);
+ 357   3                  CScalerSetBit(_P1_MIX_B0, ~_BIT1, 0x00);
+ 358   3                  return 0xffffffff;
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 7   
+
+ 359   3              }
+ 360   2              CScalerRead(_AUTO_PHASE_3_84, 3, pData, _AUTOINC);
+ 361   2              pData[3]    = 0;
+ 362   2              if(((DWORD *)pData)[0] > maxsum)
+ 363   2              {
+ 364   3                  maxsum  = ((DWORD *)pData)[0];
+ 365   3                  best    = count;
+ 366   3              }
+ 367   2              count += ucSelStep;
+ 368   2          }
+ 369   1          while(count < ucSelColor);
+ 370   1          CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x00);
+ 371   1          CScalerPageSelect(_PAGE1);
+ 372   1      
+ 373   1          CScalerSetBit(_P1_MIX_B0, ~_BIT1, 0x00);
+ 374   1              
+ 375   1          CTimerWaitForEvent(_EVENT_IVS);
+ 376   1          pData[0] = CAutoWaitFinish();
+ 377   1          if(pData[0] != _ERROR_SUCCESS)
+ 378   1              return 0xffffffff;
+ 379   1          if(((DWORD)stModeInfo.IHFreq * stModeInfo.IHTotal / 1000) < 530)
+ 380   1          {
+ 381   2              *ucPhaseResult = best / 2;
+ 382   2          }
+ 383   1          else
+ 384   1          {
+ 385   2              *ucPhaseResult = best;
+ 386   2          }
+ 387   1          return maxsum;
+ 388   1      }
+ 389          
+ 390          //--------------------------------------------------
+ 391          // Description  : Get phase SOD information
+ 392          // Input Value  : ucColor   --> Color we measure
+ 393          // Output Value : Measure status
+ 394          //--------------------------------------------------
+ 395          BYTE CAutoReadPhaseInfo(BYTE ucColor)
+ 396          {
+ 397   1          CScalerSetBit(_AUTO_ADJ_CTRL0_7A, ~(_BIT1 | _BIT0), ucColor & 0x03);
+ 398   1          CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x3b);
+ 399   1          pData[0] = CAutoWaitFinish();
+ 400   1          if(_ERROR_SUCCESS != pData[0])
+ 401   1              return pData[0];
+ 402   1          CScalerRead(_AUTO_PHASE_3_84, 4, pData, _AUTOINC);
+ 403   1          return _ERROR_SUCCESS;
+ 404   1      }
+ 405          
+ 406          //--------------------------------------------------
+ 407          // Description  : Auto clock process
+ 408          // Input Value  : None
+ 409          // Output Value : Measure status
+ 410          //--------------------------------------------------
+ 411          BYTE CAutoDoAutoClock(void)
+ 412          {
+ 413   1          BYTE    result, phase;
+ 414   1          WORD    count, delta, stop;
+ 415   1          DWORD   maxval;
+ 416   1      
+ 417   1          stModeUserData.Clock = stModeInfo.IHTotal;
+ 418   1          stModeUserData.Clock &= 0xfffc;
+ 419   1          //080324
+ 420   1      ///    CAdjustAdcClock(stModeUserData.Clock);
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 8   
+
+ 421   1          CAdjustAdcClock(stModeUserData.Clock, 2);
+ 422   1          result  = CAutoMeasurePositionV(_MIN_NOISE_MARGIN);
+ 423   1          if(result != _ERROR_SUCCESS)
+ 424   1              return result;
+ 425   1          delta   = (stModeInfo.IHTotal - stModeInfo.IHWidth * 8 / 10) / 2;
+ 426   1          stop    = 0;
+ 427   1          count   = 10;
+ 428   1          do
+ 429   1          {
+ 430   2              // Measure Horizontal Start/End
+ 431   2              //result      = CAutoMeasurePositionH(_MIN_NOISE_MARGIN + 0x10);
+ 432   2              result      = CAutoMeasurePositionH(_MIN_NOISE_MARGIN + 0x30);
+ 433   2              if(result != _ERROR_SUCCESS)
+ 434   2                  return result;
+ 435   2              usHEndPos   = usHEndPos + 1 - usHStartPos;
+ 436   2              if(usHEndPos < stModeInfo.IHWidth)
+ 437   2              {
+ 438   3                  if((stModeInfo.IHWidth - usHEndPos) >= (2 * delta))
+ 439   3                  {
+ 440   4                      stop    = 1;
+ 441   4                  }
+ 442   3                  else
+ 443   3                  {
+ 444   4                      usHStartPos = (DWORD)(stModeInfo.IHWidth - usHEndPos) * (stModeUserData.Clock)
+ 445   4                                  / (DWORD)stModeInfo.IHWidth;
+ 446   4      
+ 447   4                      if(usHStartPos <= 2)    break;
+ 448   4                      usHStartPos = (usHStartPos + 2) & 0xfffc;
+ 449   4                      //if((usHStartPos + stModeUserData.Clock - stModeInfo.IHTotal) > usDelta)
+ 450   4                      if((usHStartPos + stModeUserData.Clock) > (delta + stModeInfo.IHTotal))
+ 451   4                      {
+ 452   5                          stop    = 1;
+ 453   5                      }
+ 454   4                      else
+ 455   4                      {
+ 456   5                          stModeUserData.Clock += usHStartPos;
+ 457   5                      }
+ 458   4                  }
+ 459   3              }
+ 460   2              else
+ 461   2              {
+ 462   3                  if((usHEndPos - stModeInfo.IHWidth) >= (2 * delta))
+ 463   3                  {
+ 464   4                      stop    = 1;
+ 465   4                  }
+ 466   3                  else
+ 467   3                  {
+ 468   4                      usHStartPos = (DWORD)(usHEndPos - stModeInfo.IHWidth) * (stModeUserData.Clock)
+ 469   4                                  / (DWORD)stModeInfo.IHWidth;
+ 470   4      
+ 471   4                      if(usHStartPos <= 2)    break;
+ 472   4                      usHStartPos = (usHStartPos + 2) & 0xfffc;
+ 473   4      
+ 474   4                      //if((stModeInfo.IHTotal - (stModeUserData.Clock - usHStartPos)) > usDelta)
+ 475   4                      if((usHStartPos + stModeInfo.IHTotal) > (delta + stModeUserData.Clock))
+ 476   4                      {
+ 477   5                          stop    = 1;
+ 478   5                      }
+ 479   4                      else
+ 480   4                      {
+ 481   5                          stModeUserData.Clock -= usHStartPos;
+ 482   5                      }
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 9   
+
+ 483   4                  }
+ 484   3              }
+ 485   2              if(stop)   break;
+ 486   2              //080324
+ 487   2              ///CAdjustAdcClock(stModeUserData.Clock);
+ 488   2              CAdjustAdcClock(stModeUserData.Clock, 2);
+ 489   2          }
+ 490   1          while(--count);
+ 491   1          if((count == 0) || (stop == 1))
+ 492   1              return _ERROR_ABORT;
+ 493   1          // Prevent from 1/2-line moire and smear effect.
+ 494   1          if((usHEndPos >= stModeInfo.IHWidth && (stModeUserData.Clock - stModeInfo.IHTotal) == 4)
+ 495   1             || (usHEndPos < stModeInfo.IHWidth && (stModeInfo.IHTotal - stModeUserData.Clock) == 4))
+ 496   1          {
+ 497   2              stModeUserData.Clock = stModeInfo.IHTotal;
+ 498   2              //080324
+ 499   2              ///CAdjustAdcClock(stModeUserData.Clock);
+ 500   2              CAdjustAdcClock(stModeUserData.Clock, 2);
+ 501   2              result    = CAutoMeasurePositionH(_MIN_NOISE_MARGIN + 0x10);
+ 502   2              if(result != _ERROR_SUCCESS)
+ 503   2                  return result;
+ 504   2              usHEndPos   = usHEndPos + 1 - usHStartPos;
+ 505   2          }
+ 506   1      
+ 507   1      #if(_AUTO_CLOCK_PRECISION < 4)
+ 508   1          // Save 4N clock
+ 509   1          stop    = stModeUserData.Clock;
+ 510   1          stModeUserData.Clock += (stModeInfo.IHWidth >= usHEndPos) ? 4 : 2;
+ 511   1          //080324
+ 512   1          ///CAdjustAdcClock(stModeUserData.Clock);
+ 513   1          CAdjustAdcClock(stModeUserData.Clock, 2);
+ 514   1          // Set threshold for Clock Search
+ 515   1          CScalerSetByte(_DIFF_THRESHOLD_79, 0x18);
+ 516   1          count   = stop;
+ 517   1          maxval  = 0;
+ 518   1          delta   = 6;    // Initial value must be (N * AUTO_CLOCK_STEP)
+ 519   1          do
+ 520   1          {
+ 521   2              result    = CAutoMeasurePositionH(_MIN_NOISE_MARGIN + 0x10);
+ 522   2              if(result != _ERROR_SUCCESS)
+ 523   2                  return result;
+ 524   2              usHEndPos   = usHEndPos + 1 - usHStartPos;
+ 525   2              if(usHEndPos > (stModeInfo.IHWidth + 2))
+ 526   2              {
+ 527   3                  ((DWORD *)pData)[0]   = 0;
+ 528   3              }
+ 529   2              else
+ 530   2              {
+ 531   3                  ((DWORD *)pData)[0]   = CAutoPhaseSearch(_COLOR_SELECT, _HWAUTO_STEP_8, HWAUTOSTEPNUM(8), HWAU
+             -TOSTEPSTART(0), &phase);
+ 532   3                  if (0xffffffffL == ((DWORD *)pData)[0])   return _ERROR_INPUT;
+ 533   3              }
+ 534   2              if(maxval < ((DWORD *)pData)[0])
+ 535   2              {
+ 536   3                  maxval    = ((DWORD *)pData)[0];
+ 537   3                  count     = stModeUserData.Clock;
+ 538   3              }
+ 539   2              if(delta == 0x00)
+ 540   2              {
+ 541   3                  // Check if default clock is the best when clock searching range is larger than default.
+ 542   3                  if(stModeUserData.Clock > stModeInfo.IHTotal)
+ 543   3                  {
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 10  
+
+ 544   4                      stModeUserData.Clock = stModeInfo.IHTotal;
+ 545   4                      //080324
+ 546   4                      ///CAdjustAdcClock(stModeUserData.Clock);
+ 547   4                      CAdjustAdcClock(stModeUserData.Clock, 2);
+ 548   4                      continue;
+ 549   4                  }
+ 550   3                  break;
+ 551   3              }
+ 552   2              delta                   -= _AUTO_CLOCK_PRECISION;
+ 553   2              stModeUserData.Clock    -= _AUTO_CLOCK_PRECISION;
+ 554   2              //080324
+ 555   2              ///CAdjustAdcClock(stModeUserData.Clock);
+ 556   2              CAdjustAdcClock(stModeUserData.Clock, 2);
+ 557   2          }
+ 558   1          while(_TRUE);
+ 559   1          maxval = maxval / 3;
+ 560   1          stModeUserData.Clock    = (maxval > ((DWORD)stModeInfo.IHWidth << 10)) ? count : stop;
+ 561   1      //  if (stModeUserData.Clock > 100)
+ 562   1      //      stModeUserData.Clock = 100; // within range
+ 563   1      //080324
+ 564   1          ///CAdjustAdcClock(stModeUserData.Clock);
+ 565   1          CAdjustAdcClock(stModeUserData.Clock, 2);
+ 566   1      #endif
+ 567   1          return _ERROR_SUCCESS;
+ 568   1      }
+ 569          
+ 570          //--------------------------------------------------
+ 571          // Description  : Auto phase process
+ 572          // Input Value  : None
+ 573          // Output Value : Measure status
+ 574          //--------------------------------------------------
+ 575          BYTE CAutoDoAutoPhase(void)
+ 576          {
+ 577   1          BYTE  result, phase, best;
+ 578   1          DWORD maxsum, temp0, temp1, temp2;
+ 579   1      
+ 580   1          result = CAutoMeasurePositionH(_MIN_NOISE_MARGIN);
+ 581   1          if(_ERROR_SUCCESS != result)
+ 582   1              return result;
+ 583   1          // Set threshold 0x80 for Phase Search
+ 584   1          CScalerSetByte(_DIFF_THRESHOLD_79, 0x80);
+ 585   1          maxsum  = CAutoPhaseSearch(_COLOR_SELECT, _HWAUTO_STEP_8, HWAUTOSTEPNUM(8), HWAUTOSTEPSTART(0), &resul
+             -t);
+ 586   1          if(maxsum == 0xffffffffL)
+ 587   1              return _ERROR_INPUT;
+ 588   1          if(maxsum == 0)
+ 589   1              return _ERROR_ABORT;
+ 590   1          if(maxsum < ((DWORD)stModeInfo.IVHeight * 1024 * 3 / 2))
+ 591   1          {
+ 592   2              // Decrease threshold to 0x40 for Phase Search
+ 593   2              CScalerSetByte(_DIFF_THRESHOLD_79, 0x40);
+ 594   2              maxsum  = CAutoPhaseSearch(_COLOR_SELECT, _HWAUTO_STEP_8, HWAUTOSTEPNUM(8), HWAUTOSTEPSTART(0), &r
+             -esult);
+ 595   2              if(maxsum == 0xffffffffL)
+ 596   2                  return _ERROR_INPUT;
+ 597   2              if(maxsum == 0)
+ 598   2                  return _ERROR_ABORT;
+ 599   2              if(maxsum < ((DWORD)stModeInfo.IVHeight * 1024 * 3 / 2))
+ 600   2                  return _ERROR_PHASE;
+ 601   2          }
+ 602   1      
+ 603   1          // Issac:
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 11  
+
+ 604   1          // Please do not delete these backup code below.
+ 605   1          /*if(((DWORD)stModeInfo.IHFreq * stModeInfo.IHTotal / 1000) < 530)
+ 606   1          {
+ 607   1              BYTE  count, ucSelStep, ucSelColor;
+ 608   1      
+ 609   1              CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x00);
+ 610   1      
+ 611   1              ucSelStep   = (0x01 << _HWAUTO_STEP_2);
+ 612   1              count       = ((result - 8) & 0x3f);
+ 613   1              ucSelColor  = count + (8 * ucSelStep);
+ 614   1              maxsum      = 0;
+ 615   1              best        = 0;
+ 616   1      
+ 617   1              do
+ 618   1              {
+ 619   1                  CAdjustPhase(count);
+ 620   1      
+ 621   1                  if(_ERROR_SUCCESS != CAutoReadPhaseInfo(_COLOR_SELECT))   return _ERROR_INPUT;
+ 622   1      
+ 623   1                  if(((DWORD *)pData)[0] > maxsum)
+ 624   1                  {
+ 625   1                      maxsum  = ((DWORD *)pData)[0];
+ 626   1                      best    = count;
+ 627   1                  }
+ 628   1      
+ 629   1                  count += ucSelStep;
+ 630   1              }
+ 631   1              while(count < ucSelColor);
+ 632   1      
+ 633   1              CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x00);
+ 634   1      
+ 635   1              result = best & 0x3f;
+ 636   1          }
+ 637   1          else
+ 638   1          */   
+ 639   1          {
+ 640   2          maxsum  = CAutoPhaseSearch(_COLOR_SELECT, _HWAUTO_STEP_2, HWAUTOSTEPNUM(8), HWAUTOSTEPSTART((result - 
+             -8) & 0x3f), &result);
+ 641   2          if(maxsum == 0xffffffffL)
+ 642   2              return _ERROR_INPUT;
+ 643   2          if(maxsum == 0)
+ 644   2              return _ERROR_ABORT;
+ 645   2          } 
+ 646   1          // Search phase by weighting SOD
+ 647   1          phase   = (result - 3) & 0x3f;
+ 648   1          CAdjustPhase(phase);
+ 649   1      
+ 650   1          if(_ERROR_SUCCESS != CAutoReadPhaseInfo(_COLOR_SELECT))
+ 651   1              return _ERROR_INPUT;
+ 652   1          temp0   = ((DWORD *)pData)[0];
+ 653   1      
+ 654   1          phase   = (phase + 1) & 0x3f;
+ 655   1          CAdjustPhase(phase);
+ 656   1      
+ 657   1          if(_ERROR_SUCCESS != CAutoReadPhaseInfo(_COLOR_SELECT))
+ 658   1              return _ERROR_INPUT;
+ 659   1          temp1   = ((DWORD *)pData)[0];
+ 660   1      
+ 661   1          result  = (result + 3) & 0x3f;
+ 662   1          maxsum  = 0;
+ 663   1          do
+ 664   1          {
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 12  
+
+ 665   2              phase   = (phase + 1) & 0x3f;
+ 666   2              CAdjustPhase(phase);
+ 667   2              if(_ERROR_SUCCESS != CAutoReadPhaseInfo(_COLOR_SELECT))
+ 668   2                  return _ERROR_INPUT;
+ 669   2              temp2   = ((DWORD *)pData)[0];
+ 670   2      
+ 671   2              ((DWORD *)pData)[0] = temp2 + temp1 + temp0
+ 672   2                                    - ((temp1 > temp0 ? temp1 - temp0 : temp0 - temp1) / 2)
+ 673   2                                    - ((temp1 > temp2 ? temp1 - temp2 : temp2 - temp1) / 2);
+ 674   2      
+ 675   2              if(((DWORD *)pData)[0] > maxsum)
+ 676   2              {
+ 677   3                  maxsum  = ((DWORD *)pData)[0];
+ 678   3                  best    = (phase - 1) & 0x3f;
+ 679   3              }
+ 680   2              temp0   = temp1;
+ 681   2              temp1   = temp2;
+ 682   2          }
+ 683   1          while(phase != result);
+ 684   1          stModeUserData.Phase    = best;
+ 685   1          CAdjustPhase(stModeUserData.Phase);
+ 686   1          CScalerSetByte(_DIFF_THRESHOLD_79, 0x40);
+ 687   1          return _ERROR_SUCCESS;
+ 688   1      }
+ 689          
+ 690          //--------------------------------------------------
+ 691          // Description  : Auto position process
+ 692          // Input Value  : None
+ 693          // Output Value : Measure status
+ 694          //--------------------------------------------------
+ 695          BYTE CAutoDoAutoPosition(void)
+ 696          {
+ 697   1          BYTE result;
+ 698   1          SWORD dtemp, ctemp, atemp;
+ 699   1      
+ 700   1          result  = CAutoMeasurePositionV(_MIN_NOISE_MARGIN);
+ 701   1          if(_ERROR_SUCCESS != result)
+ 702   1              return result;
+ 703   1      
+ 704   1          result  = CAutoMeasurePositionH(_MIN_NOISE_MARGIN);
+ 705   1          if(_ERROR_SUCCESS != result)
+ 706   1              return result;
+ 707   1      
+ 708   1          /////////////////////////////////
+ 709   1          // Calculate Vertical Position //
+ 710   1          /////////////////////////////////
+ 711   1          CScalerRead(_IPV_ACT_STA_H_18, 2, pData, _AUTOINC);
+ 712   1          ctemp = (((WORD)(pData[0] & 0x07)) << 8) | pData[1];
+ 713   1      
+ 714   1          CScalerRead(_IVS_DELAY_1C, 1, pData, _AUTOINC);
+ 715   1          CScalerRead(_VGIP_HV_DELAY_1E, 1, &pData[1], _AUTOINC);
+ 716   1          dtemp = (((WORD)(pData[1] & _BIT1)) << 8) | pData[0];
+ 717   1          dtemp = usVStartPos - dtemp;
+ 718   1          atemp = (stModeInfo.IVHeight - (usVEndPos - usVStartPos + 1));
+ 719   1          if(atemp > 3)
+ 720   1          atemp = abs(usVEndPos - usVStartPos + 1 - stModeInfo.IVHeight) / 2;
+ 721   1          else
+ 722   1              atemp = 0;
+ 723   1          while(_TRUE)
+ 724   1          {
+ 725   2              if(abs(stModeUserData.VPosition + (ctemp - dtemp) - stModeInfo.IVStartPos + atemp) <= ucVStartBias
+             -)
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 13  
+
+ 726   2              {
+ 727   3      #if(_V_POSITION_DIRECTION == _V_POSITION_METHOD_0)
+ 728   3                  stModeUserData.VPosition += ctemp - dtemp + atemp;
+ 729   3      #endif
+ 730   3      
+ 731   3      #if(_V_POSITION_DIRECTION == _V_POSITION_METHOD_1)
+                          stModeUserData.VPosition -= ctemp - dtemp + atemp;
+              #endif
+ 734   3                  break;
+ 735   3              }
+ 736   2              else
+ 737   2              {
+ 738   3                  stModeUserData.VPosition = stModeInfo.IVStartPos;
+ 739   3                  break;
+ 740   3              }
+ 741   2          }
+ 742   1          CAdjustVPosition();
+ 743   1          ///////////////////////////////////
+ 744   1          // Calculate Horizontal Position //
+ 745   1          ///////////////////////////////////
+ 746   1          CScalerRead(_IPH_ACT_STA_H_14, 2, pData, _AUTOINC);
+ 747   1          ctemp = (((WORD)(pData[0] & 0x07)) << 8) | pData[1];
+ 748   1          CScalerRead(_IHS_DELAY_1D, 2, pData, _AUTOINC);
+ 749   1          dtemp = (((WORD)(pData[1] & _BIT0)) << 8) | pData[0];
+ 750   1          dtemp = usHStartPos - dtemp - 2;
+ 751   1          while(_TRUE)
+ 752   1          {
+ 753   2              if(abs(stModeUserData.HPosition + (ctemp - dtemp) - stModeInfo.IHStartPos) <= ucHStartBias)
+ 754   2              {
+ 755   3                  stModeUserData.HPosition += ctemp - dtemp;
+ 756   3                  break;
+ 757   3              }
+ 758   2              else
+ 759   2              {
+ 760   3                  stModeUserData.HPosition = stModeInfo.IHStartPos;
+ 761   3                  break;
+ 762   3              }
+ 763   2          }
+ 764   1          CAdjustHPosition();
+ 765   1          return _ERROR_SUCCESS;
+ 766   1      }
+ 767          
+ 768          #define _AUTO_VGA_MAX_LEVEL                          242
+ 769          #define _AUTO_VGA_MIN_LEVEL                           2
+ 770          #define _AUTO_COMPONENT_Y_MAX_LEVEL         250
+ 771          #define _AUTO_COMPONENT_Y_MIN_LEVEL         12
+ 772          #define _AUTO_COMPONENT_PB_MAX_LEVEL       240
+ 773          #define _AUTO_COMPONENT_PR_MAX_LEVEL       240
+ 774          #define _AUTO_VIDEO8_Y_MAX_LEVEL                 248 
+ 775          #define _AUTO_VIDEO8_Y_MIN_LEVEL                 2//12
+ 776          #define _AUTO_VIDEO8_C_MAX_LEVEL                 236 //this value can't over 240 
+ 777          
+ 778          
+ 779          #define _CHROMA_BLACK_LEVEL             0x80
+ 780          
+ 781          void CGetTargetValue(UINT8* max_value, UINT8* min_value, UINT8 color)
+ 782          {
+ 783   1              switch(_GET_INPUT_SOURCE())
+ 784   1              {
+ 785   2                     case _SOURCE_VGA:
+ 786   2                    *max_value = _AUTO_VGA_MAX_LEVEL;
+ 787   2                    *min_value = _AUTO_VGA_MIN_LEVEL;           
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 14  
+
+ 788   2                    break;
+ 789   2               case _SOURCE_YPBPR:case _SOURCE_YPBPR1:
+ 790   2                    if(color == _GREEN)
+ 791   2                    {
+ 792   3                        *max_value = _AUTO_COMPONENT_Y_MAX_LEVEL;
+ 793   3                      *min_value = _AUTO_COMPONENT_Y_MIN_LEVEL;
+ 794   3                    }
+ 795   2                    else
+ 796   2                    {
+ 797   3                        *max_value = (color == _RED) ? _AUTO_COMPONENT_PR_MAX_LEVEL : _AUTO_COMPONENT_PB_MAX_LEV
+             -EL;                 
+ 798   3                        *min_value = _CHROMA_BLACK_LEVEL;
+ 799   3                    }
+ 800   2                    break;
+ 801   2               
+ 802   2      #if(_VIDEO_AUTO_WHITE_BLANCE == _ENABLE)              
+ 803   2                  case _SOURCE_VIDEO_AV: //VIDEO8
+ 804   2                  case _SOURCE_VIDEO_SV: //VIDEO8
+ 805   2                  case _SOURCE_VIDEO_TV: //VIDEO8
+ 806   2                          if(color == _GREEN)
+ 807   2                          {
+ 808   3                             *max_value = _AUTO_VIDEO8_Y_MAX_LEVEL;
+ 809   3                       *min_value = _AUTO_VIDEO8_Y_MIN_LEVEL;
+ 810   3                          }
+ 811   2                    else
+ 812   2                    {
+ 813   3                       *max_value = _AUTO_VIDEO8_C_MAX_LEVEL;
+ 814   3                       *min_value = _CHROMA_BLACK_LEVEL;
+ 815   3                    }
+ 816   2                       break;
+ 817   2      #endif               
+ 818   2                      
+ 819   2              }
+ 820   1      }
+ 821          /*
+ 822          #define VIDEO8_Y_MAX_LEVEL          250 
+ 823          #define VIDEO8_Y_MIN_LEVEL           6
+ 824          #define VIDEO8_C_MAX_LEVEL          240
+ 825          */
+ 826          
+ 827          //--------------------------------------------------
+ 828          // Description  : Tune ADC gain and offset
+ 829          // Input Value  : None
+ 830          // Output Value : Measure status
+ 831          //--------------------------------------------------
+ 832          BYTE CAutoTuneBalance(void)
+ 833          {
+ 834   1          BYTE rev, result0, result1, color, count;
+ 835   1          BYTE xdata ucMax_Value, ucMin_Value;
+ 836   1      
+ 837   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)// VGA
+ 838   1          {       
+ 839   2              for(count=0;count<3;count++)
+ 840   2              {
+ 841   3                  stAdcData.AdcGain[count] = 0x80;
+ 842   3                  stAdcData.AdcOffset[count] = 0x80;
+ 843   3              }
+ 844   2              CAdjustAdcGainOffset();//jerry0921
+ 845   2          }
+ 846   1          else if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR ||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)// YPBPR
+ 847   1          {   
+ 848   2              for(count=0;count<3;count++)
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 15  
+
+ 849   2                  {
+ 850   3                  stYPbPrData.YPbPrGain[count] = 0x80;
+ 851   3                  stYPbPrData.YPbPrOffset[count] = 0x80;
+ 852   3                  }
+ 853   2              CAdjustAdcGainOffset();//jerry0921
+ 854   2          }
+ 855   1      #if(_VIDEO_AUTO_WHITE_BLANCE == _ENABLE)
+ 856   1          else if(bSourceVideo())// AV / SV / TV
+ 857   1          {   
+ 858   2              SET_CONTRAST(50);               // set OSD default value  to 50
+ 859   2              SET_SATURATION(50);             // set OSD default value to 50
+ 860   2              SET_VDC_GAIN(0x80);
+ 861   2              SET_VDC_OFFSET(0x80);
+ 862   2              SET_VDC_CHROMA(0x80);
+ 863   2              CVideoSetVDCContrast(0x80);
+ 864   2              CVideoSetVDCBrightness(0x80);
+ 865   2              CVideoSetVDCSaturation(0x80);
+ 866   2          #if(sRGB_Color_Enhance == _ENABLE)
+ 867   2              CAdjustSaturationHue(50, _TRUE);// set to OSD default value is 50
+ 868   2          #endif
+ 869   2          }
+ 870   1      #endif
+ 871   1      
+ 872   1      
+ 873   1              rev = CAutoMeasurePositionV(_MIN_NOISE_MARGIN);
+ 874   1              if(rev != _ERROR_SUCCESS)    return rev;
+ 875   1      
+ 876   1              rev = CAutoMeasurePositionH(_MIN_NOISE_MARGIN);
+ 877   1              if(rev != _ERROR_SUCCESS)    return rev;
+ 878   1      
+ 879   1              if(CAutoMeasureColor(_BLUE, _MEASURE_COLORS_MAX, &rev) != _ERROR_SUCCESS)       return _ERROR_ABOR
+             -T;
+ 880   1              if(rev < 0x60)              return _ERROR_ABORT;
+ 881   1      
+ 882   1              if(CAutoMeasureColor(_GREEN, _MEASURE_COLORS_MAX, &rev) != _ERROR_SUCCESS)      return _ERROR_ABOR
+             -T;
+ 883   1              if(rev < 0x60)              return _ERROR_ABORT;
+ 884   1      
+ 885   1              if(CAutoMeasureColor(_RED, _MEASURE_COLORS_MAX, &rev) != _ERROR_SUCCESS)        return _ERROR_ABOR
+             -T;
+ 886   1              if(rev < 0x60)              return _ERROR_ABORT;
+ 887   1      
+ 888   1          if(bSourceVideo())
+ 889   1              color = _GREEN;           //we don't measure the blue color in VIDEO8 auto color
+ 890   1          else
+ 891   1                     color = _BLUE;
+ 892   1          
+ 893   1              while(_TRUE)
+ 894   1              {
+ 895   2                  count = 0x30;
+ 896   2      
+ 897   2              CGetTargetValue(&ucMax_Value, &ucMin_Value, color);
+ 898   2      
+ 899   2                  do
+ 900   2                  {
+ 901   3              
+ 902   3                  rev = CAutoTuneDeviceGain(color, &result0, ucMax_Value);
+ 903   3      
+ 904   3                          if(rev == _ERROR_ABORT)     return rev;
+ 905   3                          if(rev == _ERROR_FINISH)    break;
+ 906   3                  rev = CAutoTuneDeviceOffset(color, &result1, ucMin_Value);
+ 907   3              #if(_VIDEO_AUTO_WHITE_BLANCE == _ENABLE)
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 16  
+
+ 908   3                  if(bSourceVideo())
+ 909   3                  {
+ 910   4                              //Chroma doesn't need to adjust the offset
+ 911   4                      if(color != _GREEN)
+ 912   4                      result1 = ucMin_Value;
+ 913   4                  }       
+ 914   3              #endif
+ 915   3                          if(rev == _ERROR_ABORT)     
+ 916   3                      return rev;
+ 917   3      
+ 918   3                          if((result0 == ucMax_Value) && (result1 == ucMin_Value))
+ 919   3                              break;
+ 920   3      
+ 921   3                          if((count > 8) && (result0 <= (ucMax_Value + 1)) && (result0 >= (ucMax_Value - 1))
+ 922   3                              && (result1 <= (ucMin_Value + 1)) && (result1 >= (ucMin_Value - 1)))
+ 923   3                          {
+ 924   4                              count = 8;
+ 925   4                          }
+ 926   3              }
+ 927   2              while(--count);
+ 928   2      
+ 929   2              if(color == _BLUE)              // 2 : Blue or PB
+ 930   2                          color = _GREEN;
+ 931   2              else if(color == _GREEN)        // 1: Green or Y
+ 932   2                          color = _RED;
+ 933   2              else                        // 0: Red or PR
+ 934   2                          break;
+ 935   2          }
+ 936   1      
+ 937   1          if((stAdcData.AdcGain[_RED] == 0x00) || (stAdcData.AdcGain[_GREEN] == 0x00) || (stAdcData.AdcGain[_BLU
+             -E] == 0x00))
+ 938   1              return _ERROR_ABORT;
+ 939   1          else
+ 940   1              return _ERROR_SUCCESS;
+ 941   1      }
+ 942          
+ 943          //--------------------------------------------------
+ 944          // Description  : Get max or min color value
+ 945          // Input Value  : Measure information
+ 946          // Output Value : Measure status
+ 947          //--------------------------------------------------
+ 948          BYTE CAutoMeasureColor(BYTE ucColor, BYTE ucPar, BYTE *pMargin)
+ 949          {
+ 950   1          CScalerSetBit(_AUTO_ADJ_CTRL0_7A, ~(_BIT2 | _BIT1 | _BIT0) , (ucColor == 3) ? ucColor : ( 2 - ucColor)
+             -);
+ 951   1      
+ 952   1          if(bSourceVideo())
+ 953   1          {
+ 954   2              CScalerSetBit(_VGIP_HV_DELAY_1E, 0x0f, 0x00);
+ 955   2              
+ 956   2              pData[0] = ((HIBYTE(stModeInfo.IHStartPos) << 2) & 0x0C) |(HIBYTE(stModeInfo.IHStartPos + stModeIn
+             -fo.IHWidth )  & 0x03);   
+ 957   2              pData[1] = LOBYTE(stModeInfo.IHStartPos);
+ 958   2              pData[2] = LOBYTE(stModeInfo.IHStartPos + stModeInfo.IHWidth);
+ 959   2              pData[3] = ((HIBYTE(stModeInfo.IVStartPos) << 2) & 0x0C) |(HIBYTE(stModeInfo.IVStartPos + stModeIn
+             -fo.IVHeight )  & 0x03);   
+ 960   2              pData[4] = LOBYTE(stModeInfo.IVStartPos);
+ 961   2              pData[5] = LOBYTE(stModeInfo.IVStartPos + stModeInfo.IVHeight);
+ 962   2      
+ 963   2          }
+ 964   1          else
+ 965   1          {   // VGA or YPBPR
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 17  
+
+ 966   2          if(ucPar == _MEASURE_COLORS_MIN)
+ 967   2          {
+ 968   3              pData[0] = 0x12;
+ 969   3              pData[1] = 0x80;
+ 970   3              pData[2] = 0x00;
+ 971   3              pData[3] = 0x00;
+ 972   3              pData[4] = (usVStartPos > 9) ? 9 : (usVStartPos - 1);
+ 973   3              pData[5] = pData[4] + 1;
+ 974   3          }
+ 975   2          else
+ 976   2          {
+ 977   3              pData[0] = ((usHStartPos >> 4) & 0x70) | (HIBYTE(usHEndPos) & 0x0f);
+ 978   3              pData[1] = (LOBYTE(usHStartPos));
+ 979   3              pData[2] = (LOBYTE(usHEndPos));
+ 980   3              pData[3] = ((usVStartPos >> 4) & 0x70) | (HIBYTE(usVEndPos) & 0x0f);
+ 981   3              pData[4] = (LOBYTE(usVStartPos));
+ 982   3              pData[5] = (LOBYTE(usVEndPos));
+ 983   3          }
+ 984   2          }   
+ 985   1          CScalerWrite(_H_BOUNDARY_H_70, 6, pData, _AUTOINC);
+ 986   1      
+ 987   1          CScalerSetByte(_AUTO_ADJ_CTRL1_7D, 0x01 | ((ucPar & 0x01) << 5));
+ 988   1      
+ 989   1          pData[0] = CAutoWaitFinish();
+ 990   1      
+ 991   1          if(pData[0] != _ERROR_SUCCESS)       return pData[0];
+ 992   1      
+ 993   1          CScalerRead(_AUTO_PHASE_0_87, 1, pMargin, _AUTOINC);
+ 994   1      
+ 995   1          if(ucPar == _MEASURE_COLORS_MIN)
+ 996   1              *pMargin ^= 0xff;       // measure color min need 1's complement
+ 997   1      
+ 998   1          return _ERROR_SUCCESS;
+ 999   1      }
+1000          
+1001          
+1002          UINT8 Change_Device_Gain(UINT8 color, UINT8 delta, UINT8 inc)
+1003          {
+1004   1             
+1005   1      #if(_VIDEO_AUTO_WHITE_BLANCE == _ENABLE)
+1006   1             if(bSourceVideo())
+1007   1                  return(Change_VDC_Gain(color, delta, inc));
+1008   1             else   
+1009   1      #endif
+1010   1                    return(CAutoChangeAdcGain(color, delta, inc));                
+1011   1                
+1012   1             
+1013   1      }
+1014          
+1015          UINT8 Change_Device_Offset(UINT8 color, UINT8 delta, UINT8 inc)
+1016          {
+1017   1      #if(_VIDEO_AUTO_WHITE_BLANCE == _ENABLE)
+1018   1             if(bSourceVideo())
+1019   1                 return(Change_VDC_Offset(color, delta, inc));
+1020   1             else   
+1021   1      #endif
+1022   1                       return(CAutoChangeAdcOffset(color, delta, inc));       
+1023   1      }
+1024          
+1025          //--------------------------------------------------
+1026          // Description  : Adjust ADC gain
+1027          // Input Value  : Adjusting setting
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 18  
+
+1028          // Output Value : Measure status
+1029          //--------------------------------------------------
+1030          BYTE CAutoTuneDeviceGain(BYTE ucColor, BYTE *pMargin, BYTE ucMax_Target)
+1031          {
+1032   1          BYTE temp;
+1033   1      
+1034   1          if(CAutoMeasureColor(ucColor, _MEASURE_COLORS_MAX, pMargin) != _ERROR_SUCCESS)
+1035   1              return _ERROR_ABORT;
+1036   1      
+1037   1          if(*pMargin > ucMax_Target)
+1038   1          {
+1039   2              temp  = *pMargin - ucMax_Target;
+1040   2              // Non-zero return value of Change_ADC_Gain() means ADC gain reaches maximum.
+1041   2          if(Change_Device_Gain(ucColor, temp, 0))                  // Decrease Gain; Decrease Contrast
+1042   2                  {
+1043   3                     if(bSourceVideo())
+1044   3                     {
+1045   4                     if(Change_Device_Offset(ucColor, 2, 0))               // Increase Offset; Decrease Brightne
+             -ss               
+1046   4                          return _ERROR_FINISH;
+1047   4      
+1048   4                     }
+1049   3                     else
+1050   3                     {
+1051   4                     if(Change_Device_Offset(ucColor, 4, 0))               // Increase Offset; Decrease Brightne
+             -ss               
+1052   4                          return _ERROR_FINISH;
+1053   4                     }
+1054   3                  }
+1055   2          }
+1056   1          else if(*pMargin < ucMax_Target)
+1057   1          {
+1058   2              temp  = ucMax_Target - *pMargin;
+1059   2                  // Non-zero return value of Change_ADC_Gain() means ADC gain reaches minimum.
+1060   2              if(Change_Device_Gain(ucColor, temp, 1))                  // Increase Gain; Increase Contrast
+1061   2                  {
+1062   3                     if(bSourceVideo())
+1063   3                     {
+1064   4                     if(Change_Device_Offset(ucColor, 2, 1))               // Increase Offset; Decrease Brightne
+             -ss               
+1065   4                          return _ERROR_FINISH;
+1066   4      
+1067   4                     }
+1068   3                     else
+1069   3                     {
+1070   4                     if(Change_Device_Offset(ucColor, 4, 1))               // Increase Offset; Decrease Brightne
+             -ss               
+1071   4                          return _ERROR_FINISH;
+1072   4                     }
+1073   3                  }
+1074   2              }
+1075   1          return _ERROR_SUCCESS;
+1076   1      }
+1077          
+1078          //--------------------------------------------------
+1079          // Description  : Adjust ADC offset
+1080          // Input Value  : Adjusting setting
+1081          // Output Value : Measure status
+1082          //--------------------------------------------------
+1083          BYTE CAutoTuneDeviceOffset(BYTE ucColor, BYTE *pMargin, BYTE ucMin_Target)
+1084          {
+1085   1          BYTE temp;
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 19  
+
+1086   1      
+1087   1          if(CAutoMeasureColor(ucColor, _MEASURE_COLORS_MIN, pMargin) != _ERROR_SUCCESS)
+1088   1              return _ERROR_ABORT;
+1089   1      
+1090   1           if((_GET_INPUT_SOURCE() == _SOURCE_VGA)||
+1091   1              ((_GET_INPUT_SOURCE() == _SOURCE_YPBPR ||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)&&(ucColor == _SY))
+             - ||
+1092   1              ((bSourceVideo())&&(ucColor == _GREEN)))
+1093   1           {
+1094   2      
+1095   2                     //forster modified 061002
+1096   2               if(*pMargin > ucMin_Target)
+1097   2               {
+1098   3                            temp = *pMargin - ucMin_Target;
+1099   3                   Change_Device_Offset(ucColor, ((temp > 8) ? 8 : temp), 0);
+1100   3              }
+1101   2              else if(*pMargin < ucMin_Target)
+1102   2              {
+1103   3      
+1104   3              temp = ucMin_Target - *pMargin;
+1105   3      
+1106   3                      if(*pMargin == 0)
+1107   3                                Change_Device_Offset(ucColor, temp + 4, 1);       // Increase Offset; Increase B
+             -rightness
+1108   3                      else
+1109   3                                Change_Device_Offset(ucColor, temp, 1);           // Increase Offset; Increase B
+             -rightness
+1110   3              }       
+1111   2          }
+1112   1          else
+1113   1          {
+1114   2              if(*pMargin > _CHROMA_BLACK_LEVEL)
+1115   2              {
+1116   3                  temp = *pMargin - _CHROMA_BLACK_LEVEL;
+1117   3                  Change_Device_Offset(ucColor, ((temp > 8) ? 8 : temp), 0);
+1118   3              }
+1119   2              else if(*pMargin < _CHROMA_BLACK_LEVEL)
+1120   2              {       
+1121   3                  temp = _CHROMA_BLACK_LEVEL - *pMargin;
+1122   3                      if(*pMargin == 0)
+1123   3                  {
+1124   4                              Change_Device_Offset(ucColor, temp + 4, 1);
+1125   4                      }
+1126   3                  else
+1127   3                  {
+1128   4                      Change_Device_Offset(ucColor, temp, 1);
+1129   4                  }
+1130   3              }
+1131   2          }
+1132   1          return _ERROR_SUCCESS;
+1133   1      }
+1134          
+1135          //--------------------------------------------------
+1136          // Description  : Change ADC gain
+1137          // Input Value  : Input information
+1138          // Output Value : Return 1 if overrange
+1139          //--------------------------------------------------
+1140          BYTE CAutoChangeAdcGain(BYTE ucColor, BYTE ucDelta, BYTE ucInc)
+1141          {
+1142   1          BYTE overrange = 0;
+1143   1          BYTE Gain;
+1144   1      
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 20  
+
+1145   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+1146   1              Gain =  stAdcData.AdcGain[ucColor] ;
+1147   1          else if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)
+1148   1              Gain = stYPbPrData.YPbPrGain[ucColor];
+1149   1      
+1150   1              if(ucInc)
+1151   1              {
+1152   2              if(Gain >= ucDelta)
+1153   2                  Gain -= ucDelta;
+1154   2                  else
+1155   2                  {
+1156   3                  Gain = 0;
+1157   3                      overrange = 1;
+1158   3                  }
+1159   2              }
+1160   1              else
+1161   1              {
+1162   2              if ((0xff - ucDelta) >= Gain)
+1163   2                  Gain += ucDelta;
+1164   2                  else
+1165   2                  {
+1166   3                  Gain = 0xff;
+1167   3                      overrange = 1;
+1168   3                  }
+1169   2              }
+1170   1      
+1171   1         if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+1172   1              stAdcData.AdcGain[ucColor] = Gain;
+1173   1          else if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)
+1174   1              stYPbPrData.YPbPrGain[ucColor] = Gain;
+1175   1      
+1176   1              CAdjustAdcGain();
+1177   1              return overrange;
+1178   1      }
+1179          
+1180          //--------------------------------------------------
+1181          // Description  : Change ADC offset
+1182          // Input Value  : Input information
+1183          // Output Value : Return 1 if overrange
+1184          //--------------------------------------------------
+1185          BYTE CAutoChangeAdcOffset(BYTE ucColor, BYTE ucDelta, BYTE ucInc)
+1186          {
+1187   1          BYTE overrange = 0;
+1188   1          BYTE Offset;    
+1189   1      
+1190   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+1191   1              Offset =    stAdcData.AdcOffset[ucColor];
+1192   1          else if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)
+1193   1              Offset = stYPbPrData.YPbPrOffset[ucColor];
+1194   1          if(ucInc)
+1195   1              {
+1196   2              if(Offset >= ucDelta)
+1197   2                  Offset -= ucDelta;
+1198   2                  else
+1199   2                  {
+1200   3                  Offset = 0;
+1201   3                  overrange = 1;
+1202   3                  }
+1203   2              }
+1204   1              else
+1205   1              {
+1206   2              if ((0xff - ucDelta) >= Offset)
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 21  
+
+1207   2                  Offset += ucDelta;
+1208   2              else
+1209   2                  {
+1210   3                  Offset = 0xff;
+1211   3                  overrange = 1;
+1212   3                  }
+1213   2              }
+1214   1      
+1215   1          if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+1216   1              stAdcData.AdcOffset[ucColor] = Offset;
+1217   1          else if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)
+1218   1              stYPbPrData.YPbPrOffset[ucColor] = Offset;  
+1219   1      
+1220   1              CAdjustAdcOffset();
+1221   1              return overrange;
+1222   1      }
+1223          
+1224          #if(_VIDEO_AUTO_WHITE_BLANCE == _ENABLE)
+1225          #define _CHROMA     0x00
+1226          #define _LUMA       0x01
+1227          
+1228          UINT8 Change_VDC_Gain(UINT8 color, UINT8 delta,UINT8 inc)
+1229          {
+1230   1          if(color == _LUMA)//VDC Y gain is more sensitive than other source
+1231   1          {
+1232   2              if(delta < 0x08)
+1233   2                 delta = delta >> 1;
+1234   2          }
+1235   1          
+1236   1          pData[2] = 0;
+1237   1          pData[0] = color == _LUMA ? GET_VDC_GAIN() : GET_VDC_CHROMA();
+1238   1          pData[1] = inc ? (0xff - pData[0]) : pData[0];
+1239   1          if(inc){
+1240   2              if(pData[1] > delta)
+1241   2                  pData[0] += delta;
+1242   2          else{
+1243   3                   pData[0] = 0xff;
+1244   3                   pData[2] |= color;//saturate
+1245   3              }
+1246   2          }
+1247   1          else{
+1248   2              if(pData[1] > delta)
+1249   2                      pData[0] -= delta;
+1250   2              else{
+1251   3                  pData[0] = 0;
+1252   3                  pData[2] |= color; //saturate
+1253   3              }
+1254   2          }
+1255   1          if(color == _LUMA){
+1256   2              SET_VDC_GAIN(pData[0]);
+1257   2              CVideoSetVDCContrast(pData[0]);
+1258   2          }
+1259   1          else{
+1260   2              SET_VDC_CHROMA(pData[0]);
+1261   2              CVideoSetVDCSaturation(pData[0]);
+1262   2          }
+1263   1          return pData[2];
+1264   1      }
+1265          
+1266          UINT8 Change_VDC_Offset(UINT8 color, UINT8 delta,UINT8 inc)
+1267          {
+1268   1          //Chroma can't adjust the offset
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 22  
+
+1269   1          if(color == _CHROMA)
+1270   1              return 0;
+1271   1          pData[2] = 0;
+1272   1          pData[0] = GET_VDC_OFFSET();
+1273   1         pData[1] = inc ? (0xff - pData[0]) : pData[0];
+1274   1          if(inc){
+1275   2              if(pData[1] > delta)
+1276   2                  pData[0] += delta;
+1277   2          else{
+1278   3                        pData[0] = 0xff;
+1279   3                  pData[2] |= color;  //saturate
+1280   3              }
+1281   2          }
+1282   1          else{
+1283   2              if(pData[1] > delta)
+1284   2                  pData[0] -= delta;
+1285   2          else{
+1286   3                  pData[0] = 0;
+1287   3                  pData[2] |= color;  //saturate
+1288   3          }
+1289   2      }
+1290   1          SET_VDC_OFFSET(pData[0]);
+1291   1          CVideoSetVDCBrightness(pData[0]);
+1292   1          return pData[2];
+1293   1      }
+1294          #endif
+1295          
+1296          #if(_YPBPR_SUPPORT)
+              #if(_YPBPR_AUTO_TYPE==_NEW_TYPE)
+              #define Channel_Y       0
+              #define Channel_U       1
+              #define Channel_V       2
+              
+              BYTE YPbPr_ABS(UINT8 data_1, UINT8 data_2)
+              {
+                  UINT8 result;
+              
+                  if(data_1 >= data_2)
+                      result = data_1 - data_2;
+                  else
+                      result = data_2 - data_1;
+                  return result;
+              }
+              
+              BYTE ActiveRegion_2547D(UINT16 *Region)
+              {
+                  //CScalerPageSelect(_PAGE0);
+                  CScalerSetByte(_IPH_ACT_STA_H_14, 0x00);
+                  CScalerSetByte(_IPV_ACT_STA_H_18, 0x00);
+              
+                  CScalerRead(_IPH_ACT_STA_H_14, 10, pData, _AUTOINC);            // 14(0),15(1),16(2),17(3),18(4),19(5)
+             -,1A(6),1B(7),1C(8),1D(9)
+                  Region[0] = ((pData[0]  & (0x07)) << 8) + pData[1] + pData[9];  //Active_HStart
+                  Region[1] = ((pData[2]  & (0x07)) << 8) + pData[3];                     //Active_HWidth
+                  Region[2] = ((pData[4]  & (0x07)) << 8) + pData[5] + pData[8];  //Active_VStart
+                  Region[3] = ((pData[6]  & (0x07)) << 8) + pData[7];                     //Active_VLines
+                  
+                  return(1);
+              }
+              
+              void HistPos( UINT16 Active_HStart, UINT16 Active_HWidth, UINT16 Active_VStart, UINT16 Active_VWidth, UINT
+             -16 *Offset_Pos, UINT16 *Y_Gain_Pos, UINT16 *PbPr_Gain_Pos)
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 23  
+
+              {
+              /*
+              //chroma2330#36(Default)//remember to modify fractional number.!!!!!
+                  //OffsetYPbPr Position
+                  Offset_Pos[0]   = (Active_HStart+Active_HWidth) - Active_HWidth/7;
+                  Offset_Pos[1]   = Offset_Pos[0] + Active_HWidth/100;
+                  Offset_Pos[2]   = (Active_VStart+Active_VWidth) - 2*Active_VWidth/20;
+                  Offset_Pos[3]   = Offset_Pos[2] + Active_VWidth/20;
+              
+                  //GainY Position
+                  Y_Gain_Pos[0]=  (Active_HStart + Active_HWidth)/2;
+                  Y_Gain_Pos[1]=  Y_Gain_Pos[0] + Active_HWidth/100;
+                  Y_Gain_Pos[2]   = (Active_VStart+Active_VWidth) - 2*Active_VWidth/20;
+                  Y_Gain_Pos[3]   = Y_Gain_Pos[2] + Active_VWidth/20;
+              
+                  //GainPbPr Position
+                  PbPr_Gain_Pos[0]    = (Active_HStart+Active_HWidth) - (2.5)*Active_HWidth/7;
+                  PbPr_Gain_Pos[1]    = PbPr_Gain_Pos[0]+ Active_HWidth/100;
+                  PbPr_Gain_Pos[2]    = Active_VStart + Active_VWidth/20;
+                  PbPr_Gain_Pos[3]    = PbPr_Gain_Pos[2] + Active_VWidth/20;
+              */
+              
+              //chroma2330#27
+              /*
+                  //OffsetYPbPr(Black)
+                  Offset_Pos[0]   = Active_HStart + Active_HWidth*(0.03125);
+                  Offset_Pos[1]       = Offset_Pos[0]  + Active_HWidth*(0.03125);
+              
+                  Offset_Pos[2]   = Active_VStart + Active_VWidth*(0.05);
+                  Offset_Pos[3]   = Offset_Pos[2]  + Active_VWidth*(0.05);
+              
+                  //GainY(White)
+                  Y_Gain_Pos[1]   = (Active_HStart + Active_HWidth) - Active_HWidth*(0.0625);
+                  Y_Gain_Pos[0]   = Y_Gain_Pos[1] - Active_HWidth*(0.03125);
+              
+                  Y_Gain_Pos[3]   = (Active_VStart + Active_VWidth) - Active_VWidth*(0.05);
+                  Y_Gain_Pos[2]   = Y_Gain_Pos[3] - Active_VWidth*(0.05);
+                  
+                  //GainPbPr(Magenta)
+                  PbPr_Gain_Pos[1] = Active_HStart + Active_HWidth*(0.5) - Active_HWidth*(0.0625);
+                  PbPr_Gain_Pos[0] = PbPr_Gain_Pos[1]  - Active_HWidth*(0.03125);
+              
+                  PbPr_Gain_Pos[3] = Y_Gain_Pos[3];
+                  PbPr_Gain_Pos[2] = Y_Gain_Pos[2];
+              */
+              //VideoBook-Chapter#2_colorbar
+                  Offset_Pos[0]   = (Active_HStart+Active_HWidth) - Active_HWidth*(0.0625);//over 16
+                  Offset_Pos[1]   = Offset_Pos[0] + Active_HWidth*(0.015625);//over 64
+              
+                  //GainY(White)
+                  Y_Gain_Pos[0]   = Active_HStart + Active_HWidth*(0.03125);//over 32
+                  Y_Gain_Pos[1]   = Y_Gain_Pos[0] + Active_HWidth*(0.015625);//over 64
+                      
+                  //GainPbPr(Magenta)
+                  PbPr_Gain_Pos[0] = (Active_HStart+Active_HWidth) - (3.5)*(Active_HWidth*(0.125));//over 8
+                  PbPr_Gain_Pos[1] = PbPr_Gain_Pos[0] + Active_HWidth*(0.015625); //over 64
+                      
+                  Offset_Pos[2]   = Active_VStart + Active_VWidth*(0.03125);//over 32
+                  Offset_Pos[3]   = Offset_Pos[2] + Active_VWidth*(0.03125);//over 32
+                  Y_Gain_Pos[2]  = Offset_Pos[2];
+                  Y_Gain_Pos[3]  = Offset_Pos[3];
+                  PbPr_Gain_Pos[2]  = Offset_Pos[2];
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 24  
+
+                  PbPr_Gain_Pos[3]  = Offset_Pos[3];
+              
+              }
+              
+              void HistWrite_RTD2547D_SmartFit(UINT16 *Window, UINT8 HistCh)
+              {
+                  UINT16 HStartPos_HB,HStartPos_LB;
+                  UINT16 HEndPos_HB,HEndPos_LB;
+                  UINT16 VStartPos_HB,VStartPos_LB;
+                  UINT16 VEndPos_HB,VEndPos_LB;
+              
+                  //CScalerPageSelect(_PAGE0);
+                  //Image Auto Function boundary Begin
+                  HStartPos_HB = (Window[0] >> 8) & (0x07);
+                  HStartPos_LB = Window[0] & (0xff);
+                  HEndPos_HB = (Window[1] >> 8) & (0x0f);
+                  HEndPos_LB = Window[1] & (0xff);
+                  VStartPos_HB = (Window[2] >> 8) & (0x07);
+                  VStartPos_LB = Window[2] & (0xff);
+                  VEndPos_HB = (Window[3] >> 8) & (0x0f);
+                  VEndPos_LB = Window[3] & (0xff);
+                  CScalerSetByte( _H_BOUNDARY_H_70, ((HStartPos_HB<<4) + HEndPos_HB));
+                  CScalerSetByte( _H_BOUNDARY_STA_L_71, HStartPos_LB);
+                  CScalerSetByte( _H_BOUNDARY_END_L_72, HEndPos_LB);
+                  CScalerSetByte( _V_BOUNDARY_H_73, ((VStartPos_HB<<4) + VEndPos_HB));
+                  CScalerSetByte( _V_BOUNDARY_STA_L_74, VStartPos_LB);
+                  CScalerSetByte( _V_BOUNDARY_END_L_75, VEndPos_LB);
+                  //Image Auto Function boundary End
+              
+                  //Color Source Select for Detection
+                  if(HistCh==0)
+                      CScalerSetByte( _AUTO_ADJ_CTRL0_7A, 0x01);
+                  else if(HistCh==1)
+                      CScalerSetByte( _AUTO_ADJ_CTRL0_7A, 0x00);
+                  else if(HistCh==2)
+                      CScalerSetByte( _AUTO_ADJ_CTRL0_7A, 0x02);
+              
+                  //MIN color measured, Accumulation Mode, Start Auto-Function Tracking Function
+                  CScalerSetByte( _AUTO_ADJ_CTRL1_7D, 0x31);
+              }
+              
+              BYTE FindDominant_RTD2547D_SmartFit( UINT16 *Window, UINT8 HistCh)
+              {
+                  UINT32 SUM=0;
+                  UINT32 PxlNum=0;
+                  UINT32 PEAK=0;
+                  UINT16 timeout = 2000;
+              
+                  CScalerSetByte( _DIFF_THRESHOLD_79, 0);//Threshold = 0
+                  HistWrite_RTD2547D_SmartFit( &Window[0], HistCh);
+                  do{
+                      CScalerRead(_AUTO_ADJ_CTRL1_7D, 1, pData, _AUTOINC);
+                      if(pData[0]==0x30) //check "Hiswirte" finished
+                      {
+                          CScalerRead(_AUTO_PHASE_3_84, 4, pData, _AUTOINC);
+                          SUM = ((UINT32)(pData[0])<<24) + ((UINT32)(pData[1])<<16)   + ((UINT16)pData[2]<<8) + pData[3]
+             -;
+                          PxlNum = (Window[1]-Window[0]+1)*(Window[3]-Window[2]+1);
+                          PEAK = (SUM)/PxlNum;
+                          break;
+                      }
+                      timeout--;
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 25  
+
+                  }while(timeout);
+              
+                  return(PEAK);
+              
+              }
+              
+              BYTE ADC_adjust_RTD2547D(UINT16 *HistWindow, UINT8 Target, UINT8 ADC_Adds, UINT8 ADC_Data, UINT8 HistCh)
+              {
+                  UINT8 counter = 0;
+                  UINT16 max = 0;
+                  UINT16 min = 255;
+                  UINT8 PEAK_Level = 0;
+                  UINT8 diff = 0;
+              
+                  CScalerPageSelect(_PAGE0);  
+                  CScalerSetByte(ADC_Adds, ADC_Data);
+                  do
+                  {
+                      PEAK_Level = FindDominant_RTD2547D_SmartFit( &HistWindow[0], HistCh);
+                  
+                      diff = YPbPr_ABS(Target, PEAK_Level);
+              
+                      if(diff == 0)
+                      {
+                          break;
+                      }
+                      else if(diff != 0 && counter == 9)
+                      {
+                          break;
+                      }
+                      else if (PEAK_Level >Target)
+                      {
+                          max = ADC_Data;
+                          ADC_Data = (max + min )*(0.5);
+                          //Write ADC  Reg
+                          CScalerPageSelect(_PAGE0);  
+                          CScalerSetByte( ADC_Adds, ADC_Data);
+                      }
+                      else if (PEAK_Level < Target)
+                      {
+                          min = ADC_Data;
+                          ADC_Data = (max + min)*(0.5);
+                          //Write ADC  Reg
+                          CScalerPageSelect(_PAGE0);  
+                          CScalerSetByte( ADC_Adds, ADC_Data);
+                      }
+                      //DebugPrintf("\nmax_min: ADC_Data = %x", ADC_Data);
+                      counter++;
+                  }while(1);
+              
+                  return (ADC_Data);
+              }
+              
+               BYTE Adjust_Loop(UINT16 *OffsetPos, UINT16 *GainPos, UINT8 OffsetData, UINT8 GainData, UINT8 ADCOffsetAdd
+             -s, UINT8 ADCGainAdds, UINT8 Channel, UINT8 OffsetTarget, UINT8 GainTarget)
+              {
+                  UINT8 Gain_Check;
+                  UINT8 Offset_Check;
+                  UINT8 Check_idx = 0;
+                  
+                  do{
+                      //Offset adjustment Begin
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 26  
+
+                      OffsetData = ADC_adjust_RTD2547D( &OffsetPos[0], OffsetTarget, ADCOffsetAdds, OffsetData, Channel)
+             -;
+              
+                      //Gain adjustment Begin
+                      GainData  = ADC_adjust_RTD2547D( &GainPos[0], GainTarget, ADCGainAdds, GainData, Channel);
+              
+                      Offset_Check = FindDominant_RTD2547D_SmartFit( &OffsetPos[0], Channel);
+                      Gain_Check   = FindDominant_RTD2547D_SmartFit( &GainPos[0], Channel);
+                      Check_idx++;
+                      if(Check_idx>9)
+                          break;
+                  }while((YPbPr_ABS(Offset_Check, OffsetTarget)>1  ||  YPbPr_ABS(Gain_Check, GainTarget)>1));
+                  //DebugPrintf("Offset_Check=%x\n",Offset_Check);
+                  //DebugPrintf("Gain_Check=%x\n",Gain_Check);
+                  
+                  if(Channel_Y == Channel){
+                      stYPbPrData.YPbPrGain[_GREEN] = GainData;
+                      stYPbPrData.YPbPrOffset[_GREEN] = OffsetData;
+                  }
+                  else if(Channel_U == Channel){
+                      stYPbPrData.YPbPrGain[_BLUE] = GainData;
+                      stYPbPrData.YPbPrOffset[_BLUE] = OffsetData;
+                  }
+                  else{// if(Channel_V == Channel)
+                      stYPbPrData.YPbPrGain[_RED] = GainData;
+                      stYPbPrData.YPbPrOffset[_RED] = OffsetData;
+                  }
+              
+                  return(0);
+              }
+              /*
+              //chroma2330
+              #define Y_Target_Offset_SD  16
+              #define U_Target_Offset_SD  128
+              #define V_Target_Offset_SD  128
+              #define Y_Target_Gain_SD        235
+              #define U_Target_Gain_SD        202
+              #define V_Target_Gain_SD        222
+              //
+              #define Y_Target_Offset_HD  16
+              #define U_Target_Offset_HD  128
+              #define V_Target_Offset_HD  128
+              #define Y_Target_Gain_HD        235
+              #define U_Target_Gain_HD        214 
+              #define V_Target_Gain_HD        230
+              */
+              
+              //VideoBook-ColorBar#2
+              #define Y_Target_Offset_SD  16
+              #define U_Target_Offset_SD  128
+              #define V_Target_Offset_SD  128
+              #define Y_Target_Gain_SD        235
+              #define U_Target_Gain_SD        187
+              #define V_Target_Gain_SD        200
+              //
+              #define Y_Target_Offset_HD  16
+              #define U_Target_Offset_HD  128
+              #define V_Target_Offset_HD  128
+              #define Y_Target_Gain_HD        235
+              #define U_Target_Gain_HD        187 
+              #define V_Target_Gain_HD        200
+              
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 27  
+
+              
+              BYTE CAutoTuneBalanceNew(void)
+              {
+                  UINT16 Active_Region[4],Black_Pos[4],White_Pos[4],Magenta_Pos[4];
+                  UINT8 Y_Target_Offset,U_Target_Offset,V_Target_Offset;
+                  UINT8 Y_Target_Gain,U_Target_Gain,V_Target_Gain;
+                  ADCRGBYUV_2547D ADC_2547D;
+              
+                  if(stModeInfo.ModeCurr >=4){//HD
+                      Y_Target_Offset = Y_Target_Offset_HD;
+                      U_Target_Offset = U_Target_Offset_HD;
+                      V_Target_Offset = V_Target_Offset_HD;
+                      Y_Target_Gain = Y_Target_Gain_HD;
+                      U_Target_Gain = U_Target_Gain_HD;
+                      V_Target_Gain = V_Target_Gain_HD;
+                  }
+                  else{//SD       
+                      Y_Target_Offset = Y_Target_Offset_SD;
+                      U_Target_Offset = U_Target_Offset_SD;
+                      V_Target_Offset = V_Target_Offset_SD;
+                      Y_Target_Gain = Y_Target_Gain_SD;
+                      U_Target_Gain = U_Target_Gain_SD;
+                      V_Target_Gain = V_Target_Gain_SD;
+                  }
+                  ActiveRegion_2547D(&Active_Region[0]);
+                  #if 1//eric 200706011 reduce size               
+                      #if(_ADC1_INPUT_SWAP_RG)        
+                          ADC_2547D.Y_ADC_GAIN        = _P0_RED_GAIN_C0;
+                          ADC_2547D.Y_ADC_OFFSET  = _P0_RED_OFFSET_C3;    
+                          ADC_2547D.U_ADC_GAIN        = _P0_BLU_GAIN_C2; 
+                          ADC_2547D.U_ADC_OFFSET  = _P0_BLU_OFFSET_C5; 
+                          ADC_2547D.V_ADC_GAIN        = _P0_GRN_GAIN_C1; 
+                          ADC_2547D.V_ADC_OFFSET  = _P0_GRN_OFFSET_C4; 
+                      #elif(_ADC1_INPUT_SWAP_RB)      
+                          ADC_2547D.Y_ADC_GAIN        = _P0_GRN_GAIN_C1;
+                          ADC_2547D.Y_ADC_OFFSET      = _P0_GRN_OFFSET_C4;    
+                          ADC_2547D.U_ADC_GAIN        = _P0_RED_GAIN_C0; 
+                          ADC_2547D.U_ADC_OFFSET      = _P0_RED_OFFSET_C3; 
+                          ADC_2547D.V_ADC_GAIN        = _P0_BLU_GAIN_C2; 
+                          ADC_2547D.V_ADC_OFFSET      = _P0_BLU_OFFSET_C5; 
+                      #elif(_ADC1_INPUT_SWAP_GB)          
+                          ADC_2547D.Y_ADC_GAIN        = _P0_BLU_GAIN_C2;
+                          ADC_2547D.Y_ADC_OFFSET  = _P0_BLU_OFFSET_C5;    
+                          ADC_2547D.U_ADC_GAIN        = _P0_GRN_GAIN_C1; 
+                          ADC_2547D.U_ADC_OFFSET  = _P0_GRN_OFFSET_C4; 
+                          ADC_2547D.V_ADC_GAIN        = _P0_RED_GAIN_C0; 
+                          ADC_2547D.V_ADC_OFFSET  = _P0_RED_OFFSET_C3; 
+                      #else //non-swap
+                          ADC_2547D.Y_ADC_GAIN        =_P0_GRN_GAIN_C1;
+                          ADC_2547D.Y_ADC_OFFSET  = _P0_GRN_OFFSET_C4;    
+                          ADC_2547D.U_ADC_GAIN        = _P0_BLU_GAIN_C2; 
+                          ADC_2547D.U_ADC_OFFSET  = _P0_BLU_OFFSET_C5; 
+                          ADC_2547D.V_ADC_GAIN        = _P0_RED_GAIN_C0; 
+                          ADC_2547D.V_ADC_OFFSET  = _P0_RED_OFFSET_C3; 
+                      #endif  
+                  #else
+                  ADC_Swap_Check_2547D(&ADC_2547D);
+                  #endif
+                  //Get Black, White, Magenta Position on the screen
+                  HistPos( Active_Region[0], Active_Region[1], Active_Region[2], Active_Region[3], &Black_Pos[0], &White
+             -_Pos[0], &Magenta_Pos[0]);
+                  Adjust_Loop(&Black_Pos[0], &White_Pos[0], 128, 128, ADC_2547D.Y_ADC_OFFSET, ADC_2547D.Y_ADC_GAIN, Chan
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 28  
+
+             -nel_Y, Y_Target_Offset, Y_Target_Gain);
+                  Adjust_Loop(&Black_Pos[0], &Magenta_Pos[0], 128, 128, ADC_2547D.U_ADC_OFFSET, ADC_2547D.U_ADC_GAIN, Ch
+             -annel_U, U_Target_Offset, U_Target_Gain);
+                  Adjust_Loop(&Black_Pos[0], &Magenta_Pos[0], 128, 128, ADC_2547D.V_ADC_OFFSET, ADC_2547D.V_ADC_GAIN, Ch
+             -annel_V, V_Target_Offset, V_Target_Gain);
+              
+                  //Adjust_Loop(&Black_Pos[0], &White_Pos[0], 128, 128, _P0_GRN_OFFSET_C4, _P0_GRN_GAIN_C1, Channel_Y, Y
+             -_Target_Offset, Y_Target_Gain);
+                  //Adjust_Loop(&Black_Pos[0], &Magenta_Pos[0], 128, 128, _P0_BLU_OFFSET_C5, _P0_BLU_GAIN_C2, Channel_U,
+             - U_Target_Offset, U_Target_Gain);
+                  //Adjust_Loop(&Black_Pos[0], &Magenta_Pos[0], 128, 128, _P0_RED_OFFSET_C3, _P0_RED_GAIN_C0, Channel_V,
+             - V_Target_Offset, V_Target_Gain);
+                  return (1);
+              }
+              
+              void CYPbPrPorch_LevelCheck(void)
+              {
+                  UINT16 Pos_Porch[4];
+              //  UINT8 ucTemp;
+              
+                  CScalerSetByte(_VGIP_HV_DELAY_1E, 0x00);
+              #if 0
+                  UINT16 lbound, rbound;
+               
+                  rbound  = stModeUserData.Clock;                                               // Totol Clock Number 
+                  lbound  = (UINT32)rbound * stModeInfo.IHSyncPulseCount / stModeInfo.IHCount;   // Clock number in HSYN
+             -C pulse
+                  lbound = lbound+10;
+                  rbound = lbound+10;
+                  Pos_Porch[0] = lbound;  // H Porch Start
+                  Pos_Porch[1] = rbound;  // H Porch End
+              //  pData[0]    = ((lbound >> 4) & 0x70) | (HIBYTE(rbound) & 0x0f);
+              //  pData[1]    = (LOBYTE(lbound)+0);
+              //  pData[2]    = (LOBYTE(rbound)+0);
+               
+                  lbound = stModeInfo.IVTotal/2;
+                  rbound = lbound+10;
+                  Pos_Porch[2] = lbound;  // V
+                  Pos_Porch[3] = rbound;  // V
+              //  pData[3]    = ((lbound >> 4) & 0x70) | (HIBYTE(rbound) & 0x0f);
+              //  pData[4]    = (LOBYTE(lbound)+0);
+              //  pData[5]    = (LOBYTE(rbound )+0);
+              #else
+                  ActiveRegion_2547D(&Pos_Porch[0]);
+                  switch(stModeInfo.ModeCurr)
+                  {
+                      case _MODE_480I:
+              //          Pos_Porch[0] = Pos_Porch[0] -38;//21;
+              //          Pos_Porch[1] = Pos_Porch[0]  + 3;
+              //          Pos_Porch[2] = Pos_Porch[2] +10;
+              //          Pos_Porch[3] = Pos_Porch[2] +10;
+              //      break;
+                      
+                      case _MODE_576I:
+                      case _MODE_576P:
+                      case _MODE_480P:
+                          Pos_Porch[0] = 112;//92;
+                          Pos_Porch[1] = 115;//97;
+                           //Pos_Porch[0] = Pos_Porch[0] -18;
+                           //Pos_Porch[1] = Pos_Porch[0]  + 5;
+                           Pos_Porch[2] = Pos_Porch[2] +10;
+                           Pos_Porch[3] = Pos_Porch[2] +10;
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 29  
+
+                      break;
+              
+                      default: //HD(>720p)
+                           Pos_Porch[0] = 170;
+                           Pos_Porch[1] = 173;
+                           //Pos_Porch[0] = Pos_Porch[0] -100;
+                           //Pos_Porch[1] = Pos_Porch[0]  + 8;
+                           Pos_Porch[2] = Pos_Porch[2] +10;
+                           Pos_Porch[3] = Pos_Porch[2] +10;
+                      break;
+                  }        
+              #endif
+              
+                  
+                  if((FindDominant_RTD2547D_SmartFit(&Pos_Porch[0],  0) -16) != 0 || (FindDominant_RTD2547D_SmartFit(&Po
+             -s_Porch[0],  1) -128) != 0 || (FindDominant_RTD2547D_SmartFit(&Pos_Porch[0],  2)-128) != 0 ){ 
+              /*      
+                      ROSPrintf("ADC_Offset=(%d,%d,%d)\n",stYPbPrData.YPbPrOffset[_RED],stYPbPrData.YPbPrOffset[_GREEN] 
+             -,stYPbPrData.YPbPrOffset[_BLUE]);
+                      ROSPrintf("ADC_Gain=(%d,%d,%d)\n",stYPbPrData.YPbPrGain[_RED],stYPbPrData.YPbPrGain[_GREEN] ,stYPb
+             -PrData.YPbPrGain[_BLUE]);
+                      ROSPrintf("Porch Level mismatch:diff_Y=%d,diff_U=%d, diff_V=%d\n",(FindDominant_RTD2547D_SmartFit(
+             -&Pos_Porch[0],  0)-16), (FindDominant_RTD2547D_SmartFit(&Pos_Porch[0],  1)-128),(FindDominant_RTD2547D_SmartFit(&Pos_Por
+             -ch[0],  2)-128));     
+                      ROSPrintf("after adjustment -->\n");
+              */
+                      #if(_ADC1_INPUT_SWAP_RG)
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_BLU_OFFSET_C5, stYPbPrData.YPbPrOffset[_BLUE], Cha
+             -nnel_U);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_GRN_OFFSET_C4, stYPbPrData.YPbPrOffset[_GREEN], Ch
+             -annel_V);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 16, _P0_RED_OFFSET_C3, stYPbPrData.YPbPrOffset[_RED], Chann
+             -el_Y);
+                      #elif(_ADC1_INPUT_SWAP_RB)
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_RED_OFFSET_C3, stYPbPrData.YPbPrOffset[_RED], Chan
+             -nel_U);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_BLU_OFFSET_C5, stYPbPrData.YPbPrOffset[_BLUE], Cha
+             -nnel_V);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 16, _P0_GRN_OFFSET_C4, stYPbPrData.YPbPrOffset[_GREEN], Cha
+             -nnel_Y);
+                      #elif(_ADC1_INPUT_SWAP_GB)
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_GRN_OFFSET_C4, stYPbPrData.YPbPrOffset[_GREEN], Ch
+             -annel_U);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_RED_OFFSET_C3, stYPbPrData.YPbPrOffset[_RED], Chan
+             -nel_V);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 16, _P0_BLU_OFFSET_C5, stYPbPrData.YPbPrOffset[_BLUE], Chan
+             -nel_Y);
+                      #else//non-swap
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_BLU_OFFSET_C5, stYPbPrData.YPbPrOffset[_BLUE], Cha
+             -nnel_U);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_RED_OFFSET_C3, stYPbPrData.YPbPrOffset[_RED], Chan
+             -nel_V);
+                          ADC_adjust_RTD2547D(&Pos_Porch[0], 16, _P0_GRN_OFFSET_C4, stYPbPrData.YPbPrOffset[_GREEN], Cha
+             -nnel_Y);
+                      #endif
+                      
+                      //ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_BLU_OFFSET_AA, stYPbPrData.YPbPrOffset[_BLUE], 1);
+                      //ADC_adjust_RTD2547D(&Pos_Porch[0], 128, _P0_RED_OFFSET_A8, stYPbPrData.YPbPrOffset[_RED], 2);
+                      //ADC_adjust_RTD2547D(&Pos_Porch[0], 16, _P0_GRN_OFFSET_A9, stYPbPrData.YPbPrOffset[_GREEN], 0);
+              /*
+                      ROSPrintf("Porch_LevelCheck: Y_Level=%d\n", FindDominant_RTD2547D_SmartFit(&Pos_Porch[0],  0));
+                      ROSPrintf("Porch_LevelCheck: U_Level=%d\n", FindDominant_RTD2547D_SmartFit(&Pos_Porch[0],  1));
+C51 COMPILER V7.06   AUTO                                                                  04/29/2010 18:05:52 PAGE 30  
+
+                      ROSPrintf("Porch_LevelCheck: V_Level=%d\n", FindDominant_RTD2547D_SmartFit(&Pos_Porch[0],  2));
+              */
+                  }
+                  //else
+                  //  DebugPrintf("\n Porch Level match %c",0x20);
+                  
+              }
+              #endif // #if(_YPBPR_SUPPORT)
+              #endif
+1744          
+1745          
+1746          
+1747          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   5877    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----     109
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =      8    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

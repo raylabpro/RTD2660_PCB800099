@@ -1,0 +1,318 @@
+C51 COMPILER V7.06   TIMER                                                                 04/29/2010 18:05:52 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE TIMER
+OBJECT MODULE PLACED IN .\Output\Timer.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\mcu\Timer.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRI
+                    -NT(.\Output\Timer.lst) OBJECT(.\Output\Timer.obj)
+
+stmt level    source
+
+   1          /*=============================================
+   2            * Copyright (c)      Realtek Semiconductor Corporation, 2005
+   3            * All rights reserved.
+   4            * ============================================ */
+   5          
+   6          /*================= File Description ================= */
+   7          /**
+   8           * @file
+   9           *      This file is for global structure's declaration.
+  10           *
+  11           * @author      $Author: kingee $
+  12           * @date        $Date: 2006-06-09 11:09:32 +0800 (?Ÿæ?äº? 09 ?­æ? 2006) $
+  13           * @version     $Revision: 872 $
+  14           * @ingroup     timer
+  15           */
+  16          
+  17          /**
+  18          * @addtogroup timer
+  19          * @{
+  20          */
+  21          
+  22          /*===================== Module dependency  ================== */
+  23          #include "Core\Header\Include.h"
+  24          
+  25          /*======================= Private Types ===================== */
+  26          
+  27          /*======================== Definitions ====================== */
+  28          
+  29          /*========================== Variables ====================== */
+  30          struct CTimerEventTable idata TimerEvent[_MAX_EVENT_AMOUNT];            //idata
+  31          bit bNotifyTimer0Int;
+  32          bit bTimer0Ctrl;
+  33          
+  34          /*=================== Local Functions Phototype ==============*/
+  35          
+  36          /*=========================== Functions ===================== */
+  37          /**
+  38           * CTimerHandler
+  39           * Check if  any event is time up to execute
+  40           * @param <none>
+  41           * @return {none}
+  42           *
+  43          */
+  44          void CTimerHandler(void)
+  45          {
+  46   1              BYTE timereventcnt;
+  47   1      
+  48   1              for(timereventcnt=0;timereventcnt<_MAX_EVENT_AMOUNT;timereventcnt++) 
+  49   1              {
+  50   2                      if(TimerEvent[timereventcnt].Time == 0) 
+  51   2                      {
+  52   3                              bTimer0Ctrl = _TRUE;
+  53   3                              TimerEvent[timereventcnt].Time = _INACTIVE_TIMER_EVENT;
+  54   3                              bTimer0Ctrl = _FALSE;
+C51 COMPILER V7.06   TIMER                                                                 04/29/2010 18:05:52 PAGE 2   
+
+  55   3                              (*TimerEvent[timereventcnt].Event)();
+  56   3                      }
+  57   2      
+  58   2              }
+  59   1      }
+  60          
+  61          //--------------------------------------------------
+  62          // Description  : Set up a timer for an event. If the event is exist,
+  63          //                this function is ignored and do not change the executing time.
+  64          // Input Value  : usTime    --> Unit in 10ms, range in 0.01 ~ 655.3 sec
+  65          //                Event     --> Execute Event while timeup
+  66          // Output Value : None
+  67          //--------------------------------------------------
+  68          void CTimerActiveTimerEvent(WORD usTime, void (*Event)())
+  69          {
+  70   1          BYTE timereventcnt;
+  71   1      
+  72   1          for(timereventcnt=0;timereventcnt<_MAX_EVENT_AMOUNT;timereventcnt++)
+  73   1          {
+  74   2              if((TimerEvent[timereventcnt].Time != _INACTIVE_TIMER_EVENT) && (TimerEvent[timereventcnt].Event =
+             -= Event))
+  75   2                  return;
+  76   2          }
+  77   1          
+  78   1          for(timereventcnt=0;timereventcnt<_MAX_EVENT_AMOUNT;timereventcnt++)
+  79   1          {
+  80   2              if(TimerEvent[timereventcnt].Time == _INACTIVE_TIMER_EVENT)
+  81   2              {
+  82   3                  bTimer0Ctrl = _TRUE;
+  83   3                  TimerEvent[timereventcnt].Time = usTime;
+  84   3                  bTimer0Ctrl = _FALSE;
+  85   3                  TimerEvent[timereventcnt].Event = Event;
+  86   3                  break;
+  87   3              }
+  88   2          }
+  89   1      }
+  90          
+  91          //--------------------------------------------------
+  92          // Description  : Reactive a timer for an event. If the event is exist,
+  93          //                this function will reset the executing time and restart.
+  94          // Input Value  : usTime    --> Unit in 10ms, range in 0.01 ~ 655.3 sec
+  95          //                Event     --> Execute Event while timeup
+  96          // Output Value : None
+  97          //--------------------------------------------------
+  98          void CTimerReactiveTimerEvent(WORD usTime, void (*Event)())
+  99          {
+ 100   1          BYTE timereventcnt;
+ 101   1      
+ 102   1          for(timereventcnt=0;timereventcnt<_MAX_EVENT_AMOUNT;timereventcnt++)
+ 103   1          {
+ 104   2              if((TimerEvent[timereventcnt].Time != _INACTIVE_TIMER_EVENT) && (TimerEvent[timereventcnt].Event =
+             -= Event))
+ 105   2              {
+ 106   3                  bTimer0Ctrl = _TRUE;
+ 107   3                  TimerEvent[timereventcnt].Time = usTime;
+ 108   3                  bTimer0Ctrl = _FALSE;
+ 109   3                  return;
+ 110   3              }
+ 111   2          }
+ 112   1          CTimerActiveTimerEvent(usTime, Event);
+ 113   1      }
+ 114          
+C51 COMPILER V7.06   TIMER                                                                 04/29/2010 18:05:52 PAGE 3   
+
+ 115          //--------------------------------------------------
+ 116          // Description  : Cancel an event
+ 117          // Input Value  : Event     --> Event which we want to cancel
+ 118          // Output Value : None
+ 119          //--------------------------------------------------
+ 120          void CTimerCancelTimerEvent(void (*Event)())
+ 121          {
+ 122   1          BYTE timereventcnt;
+ 123   1      
+ 124   1          for(timereventcnt=0;timereventcnt<_MAX_EVENT_AMOUNT;timereventcnt++)
+ 125   1          {
+ 126   2              if(TimerEvent[timereventcnt].Event == Event)
+ 127   2              {
+ 128   3                  bTimer0Ctrl = _TRUE;
+ 129   3                  TimerEvent[timereventcnt].Time = _INACTIVE_TIMER_EVENT;
+ 130   3                  bTimer0Ctrl = _FALSE;
+ 131   3              }
+ 132   2          }
+ 133   1      }
+ 134          
+ 135          
+ 136          
+ 137          
+ 138          /**
+ 139           * CTimerInitialTimerEvent
+ 140           * Initial timer and events for once when power up
+ 141           * @param <none>
+ 142           * @return {none}
+ 143           *
+ 144           */
+ 145          //--------------------------------------------------
+ 146          // Description  : Initial timer and events. We have to run this function at firmware startup
+ 147          // Input Value  : None
+ 148          // Output Value : None
+ 149          //--------------------------------------------------
+ 150          void CTimerInitialTimerEvent(void)
+ 151          {
+ 152   1          BYTE timereventcnt;
+ 153   1      
+ 154   1          for (timereventcnt = 0; timereventcnt < _MAX_EVENT_AMOUNT; timereventcnt ++)
+ 155   1          {
+ 156   2              TimerEvent[timereventcnt].Time = _INACTIVE_TIMER_EVENT;
+ 157   2          }
+ 158   1          TR0 = 1;
+ 159   1      }
+ 160          
+ 161          //--------------------------------------------------
+ 162          // Description  : Decrease timer counts while 10ms Interrupt is up
+ 163          // Input Value  : None
+ 164          // Output Value : None
+ 165          //--------------------------------------------------
+ 166          void CTimerDecreaseTimerCnt(void)
+ 167          {
+ 168   1          BYTE timerdeccnt;
+ 169   1      
+ 170   1          for(timerdeccnt=0;timerdeccnt<_MAX_EVENT_AMOUNT;timerdeccnt++)
+ 171   1          {
+ 172   2              if((TimerEvent[timerdeccnt].Time != _INACTIVE_TIMER_EVENT) && (TimerEvent[timerdeccnt].Time != 0))
+ 173   2              {
+ 174   3                  TimerEvent[timerdeccnt].Time--;
+ 175   3              }
+ 176   2          }
+C51 COMPILER V7.06   TIMER                                                                 04/29/2010 18:05:52 PAGE 4   
+
+ 177   1      }
+ 178          
+ 179          //----------------------------------------------------------------------------------------------------
+ 180          // Description  : Count down event process
+ 181          // Input Value  : pEventCnt --> Event counter
+ 182          //                ucWaitCnt --> Count down number (Max: 254)
+ 183          //                Event     --> Execute Event while counter is zero
+ 184          // Output Value : None
+ 185          //----------------------------------------------------------------------------------------------------
+ 186          void CTimerCountDownEventProc(BYTE *pEventCnt, BYTE ucWaitCnt, void (*Event)(void))
+ 187          {
+ 188   1          if(*pEventCnt == _INACTIVE_COUNTDOWN_EVENT)
+ 189   1          {
+ 190   2              *pEventCnt = ucWaitCnt;
+ 191   2          }
+ 192   1          else if(*pEventCnt == 0)
+ 193   1          {
+ 194   2              *pEventCnt = _INACTIVE_COUNTDOWN_EVENT;
+ 195   2              Event();
+ 196   2          }
+ 197   1          else
+ 198   1          {
+ 199   2              *pEventCnt = *pEventCnt - 1;
+ 200   2          }
+ 201   1      }
+ 202          
+ 203          /**
+ 204           * CTimerPollingEventProc
+ 205           * Polling Event Process
+ 206           * @param <ucTimeout --> Timeout number (Max: 255 ms)>
+ 207           * @param <Event     --> Polling event. This event has to return _TRUE or _FALSE>
+ 208           * @return {_TRUE while polling success, _FALSE for timeout}
+ 209           *
+ 210          */
+ 211          bit CTimerPollingEventProc(BYTE ucTimeout, bit (*Event)(void)) 
+ 212          {
+ 213   1              BYTE data temp;
+ 214   1      
+ 215   1              temp = ucTimeout;
+ 216   1              do
+ 217   1              {
+ 218   2                      CTimerDelayXms(1);
+ 219   2                      if(Event())
+ 220   2                      {
+ 221   3                              return _TRUE;
+ 222   3                      }
+ 223   2          }
+ 224   1          while(--temp);
+ 225   1      
+ 226   1          return _FALSE;
+ 227   1      }
+ 228          
+ 229          //--------------------------------------------------
+ 230          // Description  : Hold program for 0 ~ 65535 ms
+ 231          // Input Value  : usNum     --> Delay time
+ 232          // Output Value : None
+ 233          //--------------------------------------------------
+ 234          void CTimerDelayXms(WORD usNum)
+ 235          {
+ 236   1          if(usNum)
+ 237   1          {
+ 238   2              bNotifyTimer0Int = _FALSE;
+C51 COMPILER V7.06   TIMER                                                                 04/29/2010 18:05:52 PAGE 5   
+
+ 239   2              while(_TRUE)
+ 240   2              {
+ 241   3                  if(bNotifyTimer0Int)
+ 242   3                  {
+ 243   4                      bNotifyTimer0Int = _FALSE;
+ 244   4                      if(--usNum)
+ 245   4                          TR0 = _ON;
+ 246   4                      else
+ 247   4                          return;
+ 248   4                  }
+ 249   3              }
+ 250   2          }
+ 251   1      }
+ 252          
+ 253          /**
+ 254          * CTimerWaitForEvent
+ 255          * Wait event occur or timeout
+ 256          * @param <ucEvent> {Event of status1 register}
+ 257          * @return {_FALSE if event occur, _TRUE if timeout}
+ 258          *
+ 259          */
+ 260          bit CTimerWaitForEvent(BYTE ucEvent)
+ 261          {
+ 262   1          BYTE temp;
+ 263   1          BYTE timeoutcnt = 30;                   // 30ms timeout
+ 264   1      
+ 265   1          CScalerSetByte(_STATUS1_03, 0x00);      // Clear status (status register will be cleared after write)
+ 266   1      
+ 267   1          bNotifyTimer0Int = _FALSE;
+ 268   1      
+ 269   1          do
+ 270   1          {
+ 271   2              if(bNotifyTimer0Int)
+ 272   2              {
+ 273   3                  bNotifyTimer0Int  = _FALSE;
+ 274   3                  if(--timeoutcnt)
+ 275   3                      TR0 = _ON;
+ 276   3              }
+ 277   2              CScalerRead(_STATUS1_03, 1, &temp, _NON_AUTOINC);
+ 278   2              temp &= ucEvent;
+ 279   2          }
+ 280   1          while((temp == 0) && (timeoutcnt != 0));
+ 281   1      
+ 282   1          return timeoutcnt ? _FALSE : _TRUE;
+ 283   1      }
+ 284          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    631    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      27
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----       1
+   IDATA SIZE       =     40    ----
+   BIT SIZE         =      2    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

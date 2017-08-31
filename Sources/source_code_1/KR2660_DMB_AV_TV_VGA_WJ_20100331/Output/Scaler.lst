@@ -1,0 +1,636 @@
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE SCALER
+OBJECT MODULE PLACED IN .\Output\Scaler.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\rtd2662\Scaler.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEN
+                    -D PRINT(.\Output\Scaler.lst) OBJECT(.\Output\Scaler.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Scaler.c No.0003
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __SCALER__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          //--------------------------------------------------
+  12          // Description  : Get bytes from selected register in data port
+  13          // Input Value  : ucAddr    --> Access Port Address of register
+  14          //                ucValue   --> Data Port Address we want to Get
+  15          //                ucLength  --> Numbers of data we want to read
+  16          //                pArray    --> Pointer of the reading data array
+  17          //                bAutoInc  --> Address auto increasing select
+  18          // Output Value : None
+  19          //--------------------------------------------------
+  20          
+  21          void CScalerGetDataPortByte(BYTE ucAddr, BYTE ucValue, BYTE ucLength, BYTE *pArray, BIT bAutoInc)
+  22          {
+  23   1          if(ucLength > 0)
+  24   1          {
+  25   2              if((ucAddr == _SU_ACCESS_PORT_33) || (ucAddr == _HW_ACCESS_PORT_60) 
+  26   2              || (ucAddr == _CB_ACCESS_PORT_64) || (ucAddr == _PC_ACCESS_PORT_9A))
+  27   2              {
+  28   3                  CScalerSetByte(ucAddr, 0x80);
+  29   3                  ucValue = ucValue | 0x80;
+  30   3              }
+  31   2      
+  32   2              CScalerSetByte(ucAddr, ucValue);
+  33   2              CScalerRead( ucAddr + 1, ucLength, pArray, bAutoInc);
+  34   2          }
+  35   1      }
+  36          
+  37          //--------------------------------------------------
+  38          // Description  : Initial settings for scaler
+  39          // Input Value  : None
+  40          // Output Value : None
+  41          //--------------------------------------------------
+  42          void CScalerInitial(void)
+  43          {
+  44   1          // Software reset for scaler
+  45   1          CScalerSetBit(_HOST_CTRL_01, ~_BIT0, _BIT0);
+  46   1          CTimerDelayXms(20);
+  47   1          CScalerSetBit(_HOST_CTRL_01, ~_BIT0, 0x00);
+  48   1          CIrdaInitial();
+  49   1          CScalerCodeW(tSCALER_POWERUP_INITIAL);
+  50   1          
+  51   1      #if(_YPBPR_SUPPORT && _YPBPR_HW_AUTO_SOY == _ENABLE)
+                  CYPbPrHWAutoSOY();
+              #endif
+  54   1      
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 2   
+
+  55   1      #if (_HDMI_SUPPORT == _ON)
+                  CScalerCodeW(tSCALER_POWERUP_HDMI);
+              #else
+  58   1          CScalerCodeW(tSCALER_POWERUP_DVI);
+  59   1      #endif  
+  60   1      
+  61   1          CScalerReset();
+  62   1      
+  63   1      #if(_HDCP_SUPPORT == _ON)
+                  bHot_Plug = _HOT_PLUG_LOW;
+                  bHot_Plug2 = _HOT_PLUG_LOW;    
+                      CScalerPageSelect(_PAGE2);
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT1 | _BIT0),  0);
+                  CAdjustHDCP();
+                  CTimerDelayXms(90);
+                  //bHot_Plug = _HOT_PLUG_HI;
+                  bHot_Plug = _HOT_PLUG_HI;
+                  bHot_Plug2 = _HOT_PLUG_HI;       
+              #endif
+  74   1      }
+  75          
+  76          
+  77          //--------------------------------------------------
+  78          // Description  : Reset scaler process
+  79          // Input Value  : None
+  80          // Output Value : None
+  81          //--------------------------------------------------
+  82          void CScalerReset(void)
+  83          {
+  84   1          CScalerCodeW(tSCALER_RESET_TABLE);
+  85   1          /*
+  86   1          CScalerCodeW(tSCALER_POWERUP_INITIAL);
+  87   1      #if (_HDMI_SUPPORT == _ON)
+  88   1          //if(CHdmiFormatDetect())//Input source is the HDMI format.
+  89   1              CScalerCodeW(tSCALER_POWERUP_HDMI);
+  90   1          //else//DVI
+  91   1      #else
+  92   1              CScalerCodeW(tSCALER_POWERUP_DVI);
+  93   1      #endif     */
+  94   1          CMiscSetPinShare();
+  95   1      
+  96   1              MCU_PIN_DRIVING_CTRL10_FFA6 = 0x07;
+  97   1       
+  98   1          CAdjustDisableWatchDog(_WD_ALL);
+  99   1      
+ 100   1          CMiscClearStatusRegister();
+ 101   1      
+ 102   1          CScalerInitialDisplayInterface();
+ 103   1      
+ 104   1          CScalerInitialDisplayOutput();
+ 105   1      
+ 106   1          CModeSetFreeRun();
+ 107   1          /*
+ 108   1          //EricLee add for VGA
+ 109   1          if (_GET_INPUT_SOURCE() == _SOURCE_VGA)
+ 110   1          {
+ 111   1              CScalerPageSelect(_PAGE0);
+ 112   1              CScalerSetByte(_P0_ADC_DCR_CTRL_D3,0x11);
+ 113   1              //CScalerSetByte(_P0_ADC_CLAMP_CTRL0_D4,0x00);
+ 114   1          }        */
+ 115   1      
+ 116   1          if(GET_POWERSTATUS())
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 3   
+
+ 117   1          {
+ 118   2              CScalerEnableDisplayOutput();
+ 119   2              // OSD power up initial
+ 120   2              CScalerCodeW(tOSD_POWERUP_INITIAL);
+ 121   2              //EricLee add for YPBPR
+ 122   2              if (_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)
+ 123   2              {
+ 124   3                  CScalerPageSelect(_PAGE0);
+ 125   3                  CScalerSetByte(_P0_ADC_DCR_CTRL_D3,0x11);
+ 126   3                  CScalerSetByte(_P0_ADC_CLAMP_CTRL0_D4,0x00);
+ 127   3              }        
+ 128   2      
+ 129   2              CAdjustTMDSErrorCorrectionOn();
+ 130   2              //CAdjustSRGB();
+ 131   2                      if (Panel.DHWidth > 1000)
+ 132   2      #if(_GAMMA_TYPE ==  _COMPACT_GAMMA_NORMAL_TABLE)
+ 133   2              CAdjustGamma(_COMPACT_GAMMA_NORMAL_TABLE, tGAMMA_COMPACT1, tGAMMA_COMPACT1, tGAMMA_COMPACT1);
+ 134   2      #elif(_GAMMA_TYPE == _FULL_GAMMA_NORMAL_TABLE)||(_GAMMA_TYPE == _FULL_GAMMA_COMPRESS_TABLE2)    
+                      CAdjustGammaTable(GET_GAMMA());
+              #endif
+ 137   2      
+ 138   2      #if(_DISP_BIT == _DISP_24_BIT)
+                      CAdjustDither(tDITHER_SEQ_TABLE_0, tDITHER_TABLE_10_TO_8);
+              #else            
+ 141   2              CAdjustDither(tDITHER_SEQ_TABLE_0, tDITHER_TABLE_10_TO_6);
+ 142   2      #endif
+ 143   2      
+ 144   2              CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT6 | _BIT5 | _BIT4), 0x00);
+ 145   2              //if(GET_INPUTSOURCE_TYPE() == _SOURCE_VGA)
+ 146   2              //  CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT6 | _BIT5 | _BIT4), ((_ADC0_INPUT_SWAP_RG << 4) | (_ADC
+             -0_INPUT_SWAP_RB << 5)| (_ADC0_INPUT_SWAP_GB << 6)));
+ 147   2              //else if(GET_INPUTSOURCE_TYPE() == _SOURCE_YPBPR)
+ 148   2              //  CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT6 | _BIT5 | _BIT4), ((_ADC1_INPUT_SWAP_RG << 4) | (_ADC
+             -1_INPUT_SWAP_RB << 5)| (_ADC1_INPUT_SWAP_GB << 6)));      
+ 149   2              
+ 150   2              CAdjustBrightness();
+ 151   2              CAdjustContrast();
+ 152   2      
+ 153   2      #if(_OD_SUPPORT == _ON)
+                      CMemoryLoadODLUT(_OD_TABLE_COMMON);
+                      CMemorySDRAMReset();
+              #endif
+ 157   2      
+ 158   2      #if(_VIDEO_SUPPORT == _ON)
+ 159   2              // Initial video settings
+ 160   2              CVideoInitial();
+ 161   2              kx_CVDCOutputDisable();
+ 162   2      #else
+                      CInitInputSource();
+              #endif  // End of #if(_VIDEO_SUPPORT == _ON)
+ 165   2      
+ 166   2      
+ 167   2          }
+ 168   1          else
+ 169   1          {
+ 170   2      #if(AUDIO_TYPE == _AUDIO_SC7313)
+                      CSc7313MuteOn();
+              #endif
+ 173   2              CPowerDPLLOff();
+ 174   2              //CScalerSetByte(_HOST_CTRL_01, 0x42);//731301
+ 175   2              //CScalerSetBit(_HOST_CTRL_01, ~_BIT1,(_BIT4 | _BIT1)); //V307 modify//731301
+ 176   2              CPowerDownScaler();
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 4   
+
+ 177   2              CScalerDisableDisplayOutput();
+ 178   2          }
+ 179   1      }
+ 180          
+ 181          //--------------------------------------------------
+ 182          void CCustomerInitial(void)
+ 183          {
+ 184   1         //@ For RTD2662 version auto detect using.
+ 185   1         CScalerPageSelect(_PAGE0);//eric 20070529
+ 186   1         CScalerRead(_P0_POWER_ON_RESET_F3, 1, &pData[0], _NON_AUTOINC);
+ 187   1      
+ 188   1         if((pData[0]&0xC0) == 0xC0)
+ 189   1         {//@Version B
+ 190   2              CScalerSetByte(_TCON_ADDR_PORT_8B, _LVDS_CTRL1_A1);
+ 191   2              CScalerSetByte(_TCON_DATA_PORT_8C, 0xD7);
+ 192   2         }
+ 193   1         else
+ 194   1         {//@Version A
+ 195   2              CScalerSetByte(_TCON_ADDR_PORT_8B, _LVDS_CTRL1_A1);
+ 196   2              CScalerSetByte(_TCON_DATA_PORT_8C, 0x17);
+ 197   2         }
+ 198   1      }
+ 199          
+ 200          //--------------------------------------------------
+ 201          // Description  : Initial display interface for TTL, LVDS and RSDS
+ 202          // Input Value  : None
+ 203          // Output Value : None
+ 204          //--------------------------------------------------
+ 205          void CScalerInitialDisplayInterface(void)
+ 206          {
+ 207   1      #if(_OUTPUT_BUS == _PANEL_TTL)
+                  CScalerCodeW(tTTL_INITIAL);
+              #endif
+ 210   1      
+ 211   1      #if(_OUTPUT_BUS == _PANEL_LVDS)
+ 212   1          CScalerCodeW(tLVDS_INITIAL);
+ 213   1      #endif
+ 214   1      
+ 215   1      #if(_OUTPUT_BUS == _PANEL_RSDS)
+                  CScalerCodeW(tLVDS_INITIAL);
+                  CScalerCodeW(tRSDS_INITIAL);
+              #endif
+ 219   1      
+ 220   1          // Set LVDS MAP  EricLee modify
+ 221   1      #if(_LVDS_MAP == _LVDS_MAP1)
+                  CScalerSetDataPortBit(_TCON_ADDR_PORT_8B, _TCON_LVDS_CTRL3_A3, ~_BIT0, 0x00);
+              #else
+ 224   1          CScalerSetDataPortBit(_TCON_ADDR_PORT_8B, _TCON_LVDS_CTRL3_A3, ~_BIT0, _BIT0);
+ 225   1      #endif
+ 226   1      
+ 227   1          // Eric Lee add for IC version auto detect
+ 228   1          CCustomerInitial();
+ 229   1      }
+ 230          
+ 231          //--------------------------------------------------
+ 232          // Description  : Initial display output from Panel.h settings
+ 233          // Input Value  : None
+ 234          // Output Value : None
+ 235          //--------------------------------------------------
+ 236          void CScalerInitialDisplayOutput(void)
+ 237          {
+ 238   1          // Display signal control settings
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 5   
+
+ 239   1          BYTE ucTemp = 0x00;
+ 240   1      
+ 241   1      #if(_DISP_BIT == _DISP_18_BIT)
+ 242   1          ucTemp |= _BIT4;
+ 243   1      #endif
+ 244   1      
+ 245   1      #if(_DISPLAY_PORT == _DISP_DOUBLE_PORT)
+                  ucTemp |= _BIT2; 
+              #endif
+ 248   1          
+ 249   1          CScalerSetBit(_VDISP_CTRL_28, ~(_BIT4 | _BIT2), ucTemp);
+ 250   1          CScalerSetByte(_VDISP_SIGINV_29, Panel.PanelConfig & (~_BIT3));
+ 251   1      }
+ 252          
+ 253          //--------------------------------------------------
+ 254          // Description  : Enable display output
+ 255          // Input Value  : None
+ 256          // Output Value : None
+ 257          //--------------------------------------------------
+ 258          void CScalerEnableDisplayOutput(void)
+ 259          {
+ 260   1          CScalerSetBit(_VDISP_CTRL_28, ~(_BIT6 | _BIT1), _BIT1);
+ 261   1          CScalerSetBit(_VDISP_CTRL_28, ~_BIT0, _BIT0);
+ 262   1      
+ 263   1          CScalerSetBit(_VDISP_CTRL_28, ~_BIT7, _BIT7);
+ 264   1          CScalerSetBit(_VDISP_CTRL_28, ~_BIT7, 0x00);
+ 265   1      }
+ 266          
+ 267          //--------------------------------------------------
+ 268          // Description  : Disable display output
+ 269          // Input Value  : None
+ 270          // Output Value : None
+ 271          //--------------------------------------------------
+ 272          void CScalerDisableDisplayOutput(void)
+ 273          {
+ 274   1          CScalerSetBit(_VDISP_CTRL_28, ~(_BIT6 | _BIT1), _BIT6);
+ 275   1          CScalerSetBit(_VDISP_CTRL_28, ~_BIT0, 0x00);
+ 276   1      }
+ 277          
+ 278          #if(_NONLINEAR_SCALING)
+              
+              //--------------------------------------------------
+              // Description  : Disable Nonlinear scale up function
+              // Input Value  : None
+              // Output Value : None
+              //--------------------------------------------------
+              void CScalerDisableNonlinearScaleUp(void)
+              {
+                  ((DWORD*) pData)[0] = 0; //Disable non linear scale up first
+                  
+                  CScalerSetByte(_SU_ACCESS_PORT_33, 0x8c);
+                  CScalerSetByte(_SU_ACCESS_PORT_33, 0x8c);
+                  CScalerWrite(_SU_DATA_PORT_34, 4, pData, _NON_AUTOINC);
+                  CScalerSetByte(_SU_ACCESS_PORT_33, 0x00);
+              }
+              
+              //--------------------------------------------------
+              // Description  : Disable Nonlinear scale down function
+              // Input Value  : None
+              // Output Value : None
+              //--------------------------------------------------
+              void CScalerDisableNonlinearScaleDown(void)
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 6   
+
+              {
+                  
+                  CScalerSetBit(_SCALE_DOWN_CTRL_23, 0xf7, 0x00);//disable non-linear scale down
+              }
+              
+              //--------------------------------------------------
+              // Description  : Progress the Nonlinear scale up
+              // Input Value  :
+              //                Option : Indicate whether scale up be acyivate now
+              // Output Value : None
+              //--------------------------------------------------
+              void CScalerNonlinearScaleUp(BYTE Option)
+              {
+              
+                  UINT8 FlatSuFac = 0;
+                  UINT8 InitSuFac = 0;
+                  UINT16 w1;  // segment1 pixel
+                  UINT16 w2;  // segment2 pixel
+                  UINT16 w3;  // segment3 pixel
+                  UINT8 SU_Waighting;//range from 35 ~ 45
+              
+                  if(GET_NONLINEAR_VALUE() == 0)
+                  {
+                      CTimerDelayXms(120);
+                      CScalerSetByte(_STATUS0_02, 0x00);
+                      return;
+                  }
+              
+                  SU_Waighting =  35 + GET_NONLINEAR_VALUE();
+              
+                  if(Option & _BIT2)
+                  {
+                              w1 = stDisplayInfo.DHWidth/5 + 71;
+                      w2 = w1 - 71; //w2
+                      w3 = stDisplayInfo.DHWidth - SHL(w1, 1) - SHL(w2, 1); //w3
+              
+              #if(_NONLINEAR_SCALEUP_METHOD == _BOUL)
+                      ((unsigned int *) pData)[2] = stDisplayInfo.DHWidth;
+              
+                      FlatSuFac = (DWORD)512 * stModeInfo.IHWidth* 4 /((unsigned int *) pData)[2] / 5;
+                      FlatSuFac = FlatSuFac & 0x0001 ? SHR(FlatSuFac + 1, 1) : SHR(FlatSuFac, 1);//round
+              
+                      //Csu > Fsu
+                      //Fsu - Csu < 0
+                      //Fsu(w1 + w2) - [Xm - Su(w1 + 1) - Fsu(1 + w2 + w3)] < 0
+                      //Fsu(1 + w1 + 2w2 + w3) - Xm + Su(w1 + 1) < 0
+                      //Su < [Xm - Fsu(1 + w1 + 2w2 + w3)]/(w1 + 1)
+              
+                      ((unsigned long *) pData)[3] = 512 * ((DWORD)(stModeInfo.IHWidth - 1) -
+                                                      (DWORD)FlatSuFac * (w1 + SHL(w2, 1) + w3) / 255)
+                                                      /(DWORD)(w1 + 1);
+                            ((unsigned long *) pData)[3] = ((unsigned long *) pData)[3] & 0x00000001 ?
+                      SHR(((unsigned long *) pData)[3] + 1, 1) : SHR(((unsigned long *) pData)[3], 1);//round
+              
+                      //ucInit_SU_Fac = ((unsigned long*)Data)[3] > 254 ? 254 : (BYTE)((unsigned long*)Data)[3]; //scali
+             -ng factor can't larger than 1
+                      if (((unsigned long *) pData)[3] > 254)
+                      {
+                          return;
+                      }
+                      else
+                          InitSuFac = ((unsigned long *) pData)[3];
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 7   
+
+              #else
+                      //Set the initial scale up factor equal to average scale up factor * 0.2
+                      //Calculate the scaling factor normalize to 255
+                      ((UINT32*)pData)[0] = (UINT32)255 * stModeInfo.IHWidth / stDisplayInfo.DHWidth;
+                      InitSuFac = SHR(((UINT32*)pData)[0]*3 , 2);
+              
+              
+                      //Fsu > Csu
+                      //Fsu - Csu > 0
+                      //Fsu - [Xm - Su(w1 + 1) - Fsu(1 + w2 + w3)]/(w1 + w2) > 0
+                      //Fsu(w1 + w2) - [Xm - Su(w1 + 1) - Fsu(1 + w2 + w3)] > 0
+                      //Fsu(1 + w1 + 2w2 + w3) - Xm + Su(w1 + 1) > 0
+                      //Fsu > [Xm - Su(w1 + 1)]/(1 + w1 + 2w2 + w3)
+                      ((UINT32*)pData)[3] = 255 * ((UINT32)(stModeInfo.IHWidth - 1) -
+                                          (UINT32)w1 * InitSuFac / 255) /(w1 + SHL(w2, 1) + w3 - 8);
+                      if (((UINT32*)pData)[3] > 254)
+                      {
+                          return;
+                      }
+                      else
+                      {
+                          //FlatSuFac = (SHR(((UINT32*)pData)[0] * 3, 1) > 255) ? 255 : SHR(((UINT32*)pData)[0] * 3, 1);
+                          FlatSuFac = (SHR(((UINT32*)pData)[0] * SU_Waighting, 5) > 255) ? 255 : SHR(((UINT32*)pData)[0]
+             - * SU_Waighting, 5);
+              
+                      }
+              
+              #endif
+                      //((UINT32 *) pData)[3] = 16777216 * (UINT32) InitSuFac / 255 + 0x00000008;
+                      ((UINT32 *) pData)[3] = 1048576 * (UINT32) InitSuFac / 255;
+              
+                      CTimerWaitForEvent(_EVENT_DEN_STOP);
+                            pData[0] = ((((DWORD *) pData)[3] >> 16) & 0x0f);
+                      pData[1] = ((((DWORD *) pData)[3] >> 8) & 0xff);
+                      pData[2] = ((((DWORD *) pData)[3]) & 0xff);
+              
+              
+                      CScalerSetByte(_SU_ACCESS_PORT_33, 0x80); //don't remove this code thus the value can be fill in r
+             -egister
+                      CScalerSetByte(_SU_ACCESS_PORT_33, 0x80);
+                         CScalerWrite(_SU_DATA_PORT_34, 3, pData, _NON_AUTOINC);
+                         CScalerSetByte(_SU_ACCESS_PORT_33, 0x00);
+              
+              
+                      //Calculate Csu = (Xm - Su(w1 + 1) - Fsu(1 + w2 + w3))/(w1 + w2)
+                      ((UINT32*)pData)[2] = 1048576 * ((UINT32)stModeInfo.IHWidth -
+                                          (UINT32)InitSuFac * w1 / 255 -
+                                          (UINT32)FlatSuFac * (w2 + w3 - 1) / 255) /(w1 + w2 - 2);
+              
+                      //Calculate SU
+                      ((UINT32*)pData)[3] = SHR((2097152 * (UINT32)InitSuFac /255) + 1, 1);
+              
+                      if (((unsigned long *)pData)[3] > ((unsigned long *) pData)[2]) {
+                          ((unsigned long *) pData)[3] = 0 -(((unsigned long *) pData)[3] -
+                                                                 ((unsigned long *) pData)[2]) /(DWORD)w1; //The MSB is 
+             -sign bit
+                      }
+               else {
+                             if (((unsigned long *)pData)[3] > ((unsigned long *) pData)[2]) {
+                              ((unsigned long *) pData)[3] = 0 -(((unsigned long *) pData)[3] -
+                                                                 ((unsigned long *) pData)[2]) /(DWORD)w1; //The MSB is 
+             -sign bit
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 8   
+
+                          } else {
+                          //Calculate d1
+                          ((UINT32*) pData)[3] = (((UINT32*)pData)[2] - ((UINT32*)pData)[3]) / (UINT32)w1;
+                          }
+              
+                          pData[6] = ((((DWORD *) pData)[3] >> 8) & 0xff);
+                          pData[7] = (((DWORD *) pData)[3]  & 0xff);
+              
+                          //Calculate Fsu
+                          ((UINT32*)pData)[3] = SHR((2097152 * (UINT32)FlatSuFac / 255) + 1, 1);
+              
+                              if (((unsigned long *) pData)[3] > ((unsigned long *) pData)[2]) {
+                              ((UINT32*)pData)[3] = (((UINT32*)pData)[3] - ((UINT32*)pData)[2]) / (UINT32)w2;
+                              }else{
+                                          ((unsigned long *) pData)[3] = 0 -  (((unsigned long *) pData)[2] - ((unsigned
+             - long *) pData)[3]) /(DWORD)w2;
+                              }
+              
+                            }
+              
+                      pData[8] = ((((DWORD *) pData)[3] >> 8) & 0xff);
+                      pData[9] = (((DWORD *) pData)[3] & 0xff);
+              
+              #if(_NONLINEAR_SCALEUP_METHOD == _BOUL)
+                      w2 += 1;
+                      w3 += 1;
+              #else
+                      w1 -= 1;
+                      w2 -= 1;
+                      w3 -= 1;
+              #endif
+              
+                      pData[0] = AND(HIBYTE(w1), 0x07);
+                      pData[1] = LOBYTE(w1);
+                      pData[2] = AND(HIBYTE(w2), 0x07);
+                      pData[3] = LOBYTE(w2);
+                      pData[4] = AND(HIBYTE(w3), 0x07);
+                      pData[5] = LOBYTE(w3);
+              
+                      CScalerSetByte(_SU_ACCESS_PORT_33, 0x86);  //don't remove this code thus the value can be fill in 
+             -register
+                      CScalerSetByte(_SU_ACCESS_PORT_33, 0x86);
+                      CScalerWrite(_SU_DATA_PORT_34, 10, pData, _NON_AUTOINC);
+                      CScalerSetByte(_SU_ACCESS_PORT_33, 0x00);
+                      CTimerDelayXms(120);
+                      CScalerSetByte(_STATUS0_02, 0x00);
+                  }
+              }
+              
+              //--------------------------------------------------
+              // Description  : Progress the Nonlinear scale up
+              // Input Value  :
+              //                Option : Indicate whether scale up be acyivate now
+              // Output Value : None
+              //--------------------------------------------------
+              void CScalerNonlinearScaleDown(BYTE Option)
+              {
+                  UINT8 FlatSdFac;//This value must large than 64, scale down factor can't exceed 4 times
+                  UINT16 w1;
+                  UINT16 w2;
+              
+                  //if(FlatSdFac < 68)
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 9   
+
+                  //   return;
+                      if(GET_NONLINEAR_VALUE() == 0)
+                  {
+                     //CScalerSetBit(_SCALE_DOWN_CTRL_23, 0xf7, 0x00);//disable non-linear scale down
+                      return;
+                  }
+                  
+                  FlatSdFac =  68 + (10 - GET_NONLINEAR_VALUE()); //range from 68 ~ 78
+              
+                  if (Option & _BIT3 ) // non-linear scaling down
+                  {
+                      w1 = SHR(stDisplayInfo.DHWidth, 2);
+                          w2 = (stDisplayInfo.DHWidth - SHL(w1, 1)) - 1;
+              
+              
+                      //Calculate the Initial Scale down factor
+                      ((UINT32*)pData)[3] = 1048576 * ((UINT32)((UINT32)stModeInfo.IHWidth - 1) -
+                          (w1 + w2) * (UINT32)FlatSdFac / 64) / w1;
+              
+                      //Data[0] = 5;
+                      //Data[1] = info->channel ? _P1_47_H_SCALE : _P1_27_H_SCALE_DH;
+                      pData[0] = pData[13];
+                      pData[1] = pData[14];
+                      pData[2] = pData[15];
+              
+                      ((UINT32*)pData)[3] = (((UINT32*)pData)[3] - (UINT32) 1048576 * FlatSdFac / 64) / (w1 - 1);
+              
+                      if (((UINT32*)pData)[3] > 0x3fff) //Accumulated factor too large
+                          return;
+                      
+                      pData[3] = pData[14] & 0x3f;
+                      pData[4] = pData[15];
+              
+              
+                      CTimerWaitForEvent(_EVENT_IEN_STOP);
+              
+                      CScalerSetByte(_SD_ACCESS_PORT_24, 0x85);
+                      CScalerSetByte(_SD_ACCESS_PORT_24, 0x85);
+                      CScalerWrite(_SD_DATA_PORT_25, 5, pData, _NON_AUTOINC); //hill modified for scale down error
+                      CScalerSetByte(_SD_ACCESS_PORT_24, 0x00);
+              
+                      //Data[0] = 4;
+                      //Data[1] = info->channel ? _P1_4C_SD_ACC_WIDTHH : _P1_2C_SD_ACC_WIDTHH;
+                      pData[0] = HIBYTE(w1);
+                      pData[1] = LOBYTE(w1);
+                      pData[2] = HIBYTE(w2);
+                      pData[3] = LOBYTE(w2);
+                      //Data[6] = 0;
+                      //CRtdWrite();
+                      CScalerSetByte(_SD_ACCESS_PORT_24, 0x8a);
+                      CScalerSetByte(_SD_ACCESS_PORT_24, 0x8a);
+                      CScalerWrite(_SD_DATA_PORT_25, 4, pData, _NON_AUTOINC); //hill modified for scale down error
+                      CScalerSetByte(_SD_ACCESS_PORT_24, 0x00);
+              
+                      CScalerSetBit(_SCALE_DOWN_CTRL_23, 0xff, 0x08);
+                      CTimerDelayXms(120);
+                      CScalerSetByte(_STATUS0_02, 0x00);
+                      //CRtdClearBits((info->channel ? _P1_41_SD_CTRL2 : _P1_21_SD_CTRL2), _BIT2); // enable non-linear 
+             -scaling down
+                  } // end of (GET_NONLINEAR_ON() && GET_HSCALE_UP()) // non-linear scaling
+              
+              }
+C51 COMPILER V7.06   SCALER                                                                04/29/2010 18:06:01 PAGE 10  
+
+              #endif
+ 542          //731301***
+ 543          #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))//V402 modify
+              //--------------------------------------------------
+              // Description  : Switch the Digital Input Port
+              // Input Value  : usSwitch  --> Parameter for Digital Input Port
+              // Output Value : None
+              //--------------------------------------------------
+              #if 0
+              void CScalerDigitalPortSwitch(void)
+              {
+                  CScalerPageSelect(_PAGE2);
+              
+                  if(!CHdmiFormatDetect())
+                  {
+                          CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~(_BIT6 | _BIT5), 0x00);
+                  }
+                  else
+                  {
+                          CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~(_BIT6 | _BIT5), (_BIT6 | _BIT5));
+                  }
+              
+                 /* switch(usSwitch)
+                  {
+                      case _DVI_D0_PORT:
+                      case _HDMI_H0_PORT:
+                          CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~_BIT1, 0x00);
+                          CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT1 | _BIT0), _BIT1 | _BIT0);
+                          CScalerSetBit(_P2_HDCP_PORT_CTRL_C2, ~_BIT1, 0x00);
+                          break;
+              
+                      case _DVI_D1_PORT:
+                      case _HDMI_H1_PORT:
+                          CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~_BIT1, _BIT1);
+                          CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT1 | _BIT0), _BIT1 | _BIT0);
+                          CScalerSetBit(_P2_HDCP_PORT_CTRL_C2, ~_BIT1, _BIT1);
+                          break;
+                  }*/
+                  CTimerDelayXms(200);
+                  CScalerSetBit(_P2_HDCP_CTRL_C0, ~_BIT0, _BIT0);
+              }
+              #endif
+              #endif
+ 584          //731301###
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    492    ----
+   CONSTANT SIZE    =    404    ----
+   XDATA SIZE       =      2       6
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =      2    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       1
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

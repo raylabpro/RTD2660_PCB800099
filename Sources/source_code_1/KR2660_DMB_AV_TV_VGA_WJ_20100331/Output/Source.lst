@@ -1,0 +1,598 @@
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE SOURCE
+OBJECT MODULE PLACED IN .\Output\Source.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\rtd2662\Source.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEN
+                    -D PRINT(.\Output\Source.lst) OBJECT(.\Output\Source.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Source.c No.0003
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __SOURCE__
+   8          
+   9          #include "Core\Header\Include.h"
+  10          
+  11          /**
+  12           * CSourceHandler
+  13           * Scan all input port and select active port
+  14           * return TRUE if there is any active port available and selected
+  15           * @param <none>
+  16           * @return {TRUE/FALSE}
+  17           *
+  18          */
+  19          bit CSourceHandler(void)
+  20          {
+  21   1        #if(_HDMI_SUPPORT == _ON)
+                      ucHDMIMode = _HM_OTHER;
+                #endif
+  24   1      
+  25   1          if(CSourceScanInputPort(CGetSourcePortType(_GET_INPUT_SOURCE())))
+  26   1          {
+  27   2              return _TRUE;
+  28   2          }
+  29   1      
+  30   1          return _FALSE;
+  31   1      }
+  32          
+  33          //--------------------------------------------------
+  34          // Description  : Return source input port type
+  35          // Input Value  : 
+  36          // Output Value : 
+  37          //--------------------------------------------------
+  38          BYTE CGetSourcePortType(BYTE ucSource)
+  39          {
+  40   1          switch(ucSource)
+  41   1          {
+  42   2      #if(_VGA_SUPPORT)
+  43   2          case _SOURCE_VGA:         return _SOURCE_VGA_PORT_TYPE;
+  44   2      #endif
+  45   2      
+  46   2      #if(_TMDS_SUPPORT)
+                  case _SOURCE_DVI:         return _SOURCE_DVI_PORT_TYPE;
+              #endif
+  49   2      
+  50   2      #if(_HDMI_SUPPORT)
+                  case _SOURCE_HDMI:        return _SOURCE_HDMI_PORT_TYPE;
+              #endif
+  53   2                     
+  54   2      #if(_YPBPR_SUPPORT)
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 2   
+
+                  case _SOURCE_YPBPR:       return _SOURCE_YPBPR_PORT_TYPE;
+              #endif
+  57   2      
+  58   2      #if(_YPBPR1_SUPPORT)
+                  case _SOURCE_YPBPR1:       return _SOURCE_YPBPR1_PORT_TYPE;
+              #endif
+  61   2          default:                  break;
+  62   2          }
+  63   1      
+  64   1          return _NO_PORT;
+  65   1      }
+  66          
+  67          //--------------------------------------------------
+  68          bit bSourceVideo(void)
+  69          {
+  70   1          if(_GET_INPUT_SOURCE() == _SOURCE_VIDEO_AV
+  71   1          || _GET_INPUT_SOURCE() == _SOURCE_VIDEO_SV
+  72   1          || _GET_INPUT_SOURCE() == _SOURCE_VIDEO_TV)
+  73   1            return 1;
+  74   1      
+  75   1          return 0;
+  76   1      }
+  77          
+  78          /**
+  79           * CSourceScanInputPort
+  80           * Initial input port setting when firmware startup
+  81           * @param <none>
+  82           * @return {none}
+  83           *
+  84          */  /*
+  85          void CSourceInitialInputPort(void)
+  86          {
+  87              BYTE cnt;
+  88          
+  89              SET_INPUTSYNC_TYPE(_NO_SYNC_STATE);
+  90          
+  91              for(cnt=0;cnt<_INPUT_PORT_MAX;cnt++)
+  92              {
+  93                  CLR_INPUTPORT_SELECT(cnt);
+  94                  switch(GET_INPUTPORT_TYPE(stSystemData.InputSource))
+  95                  {
+  96                      case _DSUB_A0_PORT:
+  97                          SET_INPUTSOURCE_TYPE(_SOURCE_VGA);
+  98                          break;
+  99          
+ 100                  #if (_HDMI_SUPPORT == _ON)
+ 101                      case _HDMI_PORT:
+ 102                  #endif
+ 103                  #if(_TMDS_SUPPORT == _ON)           
+ 104                      case _DVI_PORT:
+ 105                  #endif  
+ 106                          SET_INPUTSOURCE_TYPE(_SOURCE_DVI);
+ 107                              break;
+ 108                          
+ 109                      case _YPBPR_A0_PORT:
+ 110                          SET_INPUTSOURCE_TYPE(_SOURCE_YPBPR);
+ 111                              break;
+ 112                          
+ 113                      case _VIDEO_AV_PORT:
+ 114                      case _VIDEO_SV_PORT:
+ 115          
+ 116                      case _VIDEO_TV_PORT:
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 3   
+
+ 117                      case _VIDEO_YCBCR_PORT:
+ 118                      case _VIDEO_SCART_PORT:
+ 119                          SET_INPUTSOURCE_TYPE(_SOURCE_VIDEO8);
+ 120                          break;
+ 121                                  
+ 122                  }
+ 123              }
+ 124          } */
+ 125          
+ 126          /**
+ 127           * CSourceScanInputPort
+ 128           * Scan if there is an available port
+ 129           * Check connect pin and scan all input port to obtain if the signal is available
+ 130           * @param <none>
+ 131           * @return {none}
+ 132           *
+ 133          */
+ 134          bit CSourceScanInputPort(BYTE ucSource)
+ 135          {
+ 136   1          BYTE cnt = _GET_INPUT_SOURCE();
+ 137   1          
+ 138   1          switch (ucSource)
+ 139   1          {
+ 140   2      #if(_YPBPR_SUPPORT == _ON)
+                  case _YPBPR_A0_PORT:
+              #endif
+ 143   2          case _DSUB_A0_PORT:
+ 144   2              if (CSourceScanInputPortVGA(_ANALOG_SOURCE_0))
+ 145   2              {
+ 146   3                  if ((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4))
+ 147   3                  {
+ 148   4                      bHsyncSelection = 1;
+ 149   4                  }
+ 150   3                  else
+ 151   3                  {
+ 152   4                      bHsyncSelection = 0;
+ 153   4                  }
+ 154   3                  return _TRUE;
+ 155   3              }
+ 156   2              else
+ 157   2              {
+ 158   3                  return _FALSE;
+ 159   3              }
+ 160   2              break;
+ 161   2      
+ 162   2      #if(_YPBPR_SUPPORT == _ON)
+                  case _YPBPR_A1_PORT:
+              #endif
+ 165   2          case _DSUB_A1_PORT:
+ 166   2              if (CSourceScanInputPortVGA(_ANALOG_SOURCE_1))
+ 167   2              {
+ 168   3                  if ((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4))
+ 169   3                  {
+ 170   4                      bHsyncSelection = 1;
+ 171   4                  }
+ 172   3                  else
+ 173   3                  {
+ 174   4                      bHsyncSelection = 0;
+ 175   4                  }
+ 176   3                  return _TRUE;
+ 177   3              }
+ 178   2              else
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 4   
+
+ 179   2              {
+ 180   3                  return _FALSE;
+ 181   3              }
+ 182   2              break;
+ 183   2      
+ 184   2      #if((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+                  case _DVI_PORT:
+                  case _DVI_D0_PORT:
+                  case _DVI_D1_PORT:
+                  #if(_DVI_DE_ONLY_SUPPORT == _ON)
+                      if (CSourceScanInputPortDVI(_DE_ONLY_ON))
+                      {
+                          return _TRUE;
+                      }
+                  #endif
+                      if (CSourceScanInputPortDVI(_DE_ONLY_OFF))
+                      {
+                          return _TRUE;
+                      }
+                      else
+                      {
+                          return _FALSE;
+                      }
+              
+                  case _HDMI_PORT:
+                  case _HDMI_D0_PORT:
+                  case _HDMI_D1_PORT:
+                      if (CSourceScanInputPortDVI(_DE_ONLY_OFF))
+                      {
+                          return _TRUE;
+                      }
+                      else
+                      {
+                          return _FALSE;
+                      }
+                  
+                  case _DVI_I_A0_PORT:
+                  #if(_DVI_I_SOURCE_SWITCH_SUPPORT == _ON)
+                      if (GET_DVI_I_SOURCE_SWITCH())
+                  #endif
+                      {
+                  #if(_DVI_DE_ONLY_SUPPORT == _ON)
+                          if (CSourceScanInputPortDVI(_DE_ONLY_ON))
+                          {
+                              return _TRUE;
+                          }
+                  #endif
+                          if (CSourceScanInputPortDVI(_DE_ONLY_OFF))
+                          {
+                              return _TRUE;
+                          }
+                          else if (CSourceScanInputPortVGA(_ANALOG_SOURCE_0))
+                          {
+                              if ((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4))
+                              {
+                                  bHsyncSelection = 1;
+                              }
+                              else
+                              {
+                                  bHsyncSelection = 0;
+                              }
+                              return _TRUE;
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 5   
+
+                          }
+                          else
+                          {
+                              return _FALSE;
+                          }
+                      }
+                  #if(_DVI_I_SOURCE_SWITCH_SUPPORT == _ON)
+                      else
+                      {
+                          if (CSourceScanInputPortVGA(_ANALOG_SOURCE_0))
+                          {
+                              if ((bit)CScalerGetBit(_SYNC_SELECT_47, _BIT4))
+                              {
+                                  bHsyncSelection = 1;
+                              }
+                              else
+                              {
+                                  bHsyncSelection = 0;
+                              }
+                              return _TRUE;
+                          }
+                  #if(_DVI_DE_ONLY_SUPPORT == _ON)
+                          else if (CSourceScanInputPortDVI(_DE_ONLY_ON))
+                          {
+                              return _TRUE;
+                          }
+                  #endif
+                          else if (CSourceScanInputPortDVI(_DE_ONLY_OFF))
+                          {
+                              return _TRUE;
+                          }
+                          else
+                          {
+                              return _FALSE;
+                          }
+                      }
+                  #endif
+                      //break;
+              #endif//((_TMDS_SUPPORT == _ON) || (_HDMI_SUPPORT == _ON))
+ 280   2          
+ 281   2          default:
+ 282   2              break;
+ 283   2          }
+ 284   1      } 
+ 285          
+ 286          
+ 287          //--------------------------------------------------
+ 288          // Description  : Scan VGA input port to obtain if the signal is available
+ 289          // Input Value  : Select analog source 0 or 1
+ 290          // Output Value : Return _TRUE if the signal is available
+ 291          //--------------------------------------------------
+ 292          bit CSourceScanInputPortVGA(BYTE ucAnalogSource)
+ 293          {
+ 294   1      //  BYTE    ucSearchIndex;  
+ 295   1          BYTE cnt, synctypetemp = _NO_SYNC_STATE;;
+ 296   1      
+ 297   1          if(ucAnalogSource == _ANALOG_SOURCE_0)  
+ 298   1              CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT6 | _BIT5 | _BIT4), ((_ADC0_INPUT_SWAP_RG << 4) | (_ADC0_IN
+             -PUT_SWAP_RB << 5)| (_ADC0_INPUT_SWAP_GB << 6)));
+ 299   1          else if(ucAnalogSource == _ANALOG_SOURCE_1)
+ 300   1              CScalerSetBit(_IPH_ACT_WID_H_16, ~(_BIT6 | _BIT5 | _BIT4), ((_ADC1_INPUT_SWAP_RG << 4) | (_ADC1_IN
+             -PUT_SWAP_RB << 5)| (_ADC1_INPUT_SWAP_GB << 6)));
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 6   
+
+ 301   1      
+ 302   1          CScalerPageSelect(_PAGE0);
+ 303   1          if(ucAnalogSource == _ANALOG_SOURCE_0 || ucAnalogSource == _DIGISTAL_SOURCE_0) 
+ 304   1          {
+ 305   2              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), (_HSYNC_SOURCE_SWAP == _OFF ? 0x00 : _BIT3 | _BIT
+             -2));
+ 306   2              CScalerSetDataPortBit(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_CLAMP_CTRL2_06, ~(_BIT5 | _BIT4), _BIT5); /
+             -/off-line ADC clamp Enable
+ 307   2              CScalerSetBit(_P0_ADC_RBG_CTRL_CE, ~_BIT3, 0x00);// ADC input0
+ 308   2              CScalerSetBit(_P0_ADC_I_BAIS0_C7, ~_BIT0, _BIT0);  //SOG0 input MUX
+ 309   2              CScalerSetBit(_P0_ADC_I_BAIS1_C8, ~(_BIT7 | _BIT6), 0x00);
+ 310   2              CScalerSetBit(_P0_ADC_RED_CTL_CF, ~_BIT7, 0x00);//RGB clamp voltage sel
+ 311   2              CScalerSetBit(_P0_ADC_GREEN_CTL_D0, ~_BIT7, 0x00);
+ 312   2              CScalerSetBit(_P0_ADC_BLUE_CTL_D1, ~_BIT7, 0x00);
+ 313   2          }
+ 314   1          else if(ucAnalogSource == _ANALOG_SOURCE_1 || ucAnalogSource == _DIGISTAL_SOURCE_1) 
+ 315   1          {
+ 316   2              CScalerSetBit(_SYNC_SELECT_47, ~(_BIT3 | _BIT2), (_HSYNC_SOURCE_SWAP == _OFF ? _BIT3 | _BIT2 : 0x0
+             -0));
+ 317   2              CScalerSetDataPortBit(_SYNC_PROC_ACCESS_PORT_5C, _SYNC_CLAMP_CTRL2_06, ~(_BIT5 | _BIT4), (_BIT5 | 
+             -_BIT4));
+ 318   2              CScalerSetBit(_P0_ADC_RBG_CTRL_CE, ~_BIT3, _BIT3);
+ 319   2              CScalerSetBit(_P0_ADC_SOG_CTRL_D6, ~(_BIT6 | _BIT5 | _BIT4), 0x00);
+ 320   2              CScalerSetBit(_P0_ADC_RED_CTL_CF, ~_BIT7, _BIT7);
+ 321   2              CScalerSetBit(_P0_ADC_GREEN_CTL_D0, ~_BIT7, _BIT7);
+ 322   2              CScalerSetBit(_P0_ADC_BLUE_CTL_D1, ~_BIT7, _BIT7);
+ 323   2          }
+ 324   1      
+ 325   1          CScalerSetBit(_SYNC_CTRL_49, ~(_BIT1 | _BIT0), _BIT1);// ADC_HS/ADC_VS
+ 326   1      
+ 327   1      #if(_YPBPR_SUPPORT == _ON)
+                  if(_GET_INPUT_SOURCE() == _SOURCE_YPBPR||_GET_INPUT_SOURCE() == _SOURCE_YPBPR1)
+                      CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, _BIT4);//  SOG/SOY
+                  else
+                      CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, 0x00);// HS_RAW   
+              #else
+ 333   1              CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, 0x00);
+ 334   1      #endif  // End of #if(_YPBPR_SUPPORT == _ON)
+ 335   1      
+ 336   1      
+ 337   1          for(cnt=0;cnt<2;cnt++)
+ 338   1          {
+ 339   2              synctypetemp = CSyncGetSyncTypeAutoRun();
+ 340   2      
+ 341   2              if(synctypetemp != _NO_SYNC_STATE)
+ 342   2              {
+ 343   3                  return _TRUE;
+ 344   3              }
+ 345   2      #if(_HSYNC_TYPE_SELECT != _HSYNC_ONLY)
+ 346   2              CScalerSetBit(_SYNC_SELECT_47, ~_BIT4, _BIT4);
+ 347   2      #endif  // End of #if(_HSYNC_TYPE_SELECT != _HSYNC_ONLY)
+ 348   2          }
+ 349   1              
+ 350   1          CScalerSetBit(_SYNC_SELECT_47, ~_BIT6, 0x00);// manual 
+ 351   1          CScalerSetBit(_STABLE_MEASURE_4F, ~_BIT0, 0x00);
+ 352   1          return _FALSE;
+ 353   1      
+ 354   1              
+ 355   1      }
+ 356          
+ 357          /**
+ 358           * CSourceScanInputPortDVI
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 7   
+
+ 359           * Scan DVI input port to obtain if the signal is available
+ 360           * @param <BYTE ucPar> {_DE_ONLY_OFF or _DE_ONLY_ON}
+ 361           * @return {_TRUE if the signal is valid and in freq range,_FALSE if not}
+ 362           *
+ 363          */
+ 364          #if(_TMDS_SUPPORT == _ON || _HDMI_SUPPORT == _ON)
+              bit CSourceScanInputPortDVI(BYTE ucPar)
+              {
+                  BYTE cnt0, cnt1;
+                           
+                  CScalerPageSelect(_PAGE2);
+                  CScalerRead(_P2_HDMI_SR_CB, 1, &pData[0], _NON_AUTOINC);
+                  CScalerRead(_P2_TMDS_CTRL_A4, 1, &pData[1], _NON_AUTOINC);
+              
+              #if(_HDMI_SUPPORT == _ON)
+                  if((pData[0]&0x40)&& (pData[1]&0xF8))
+                  {
+                      ucHdmiAVMuteCnt++;
+                      if(ucHdmiAVMuteCnt == 20)
+                      {
+                          CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_SCR_00, ~(_BIT3 | _BIT2), _BIT3);//Set H
+             -DMI/DVI switch mode(manual,DVI)//Alanli20070801
+                          CTimerDelayXms(200);
+                          CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_SCR_00, ~(_BIT3 | _BIT2), 0x00);//Set HD
+             -MI/DVI switch mode(auto)
+                          ucHdmiAVMuteCnt = 0;
+                      }
+                      return _FALSE;  
+                  }          
+              #endif
+                          /*      
+                  if (_SOURCE_DVI == _GET_INPUT_SOURCE())
+                      CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_SCR_00, ~(_BIT3 | _BIT2), _BIT3);//Set HDMI/
+             -DVI switch mode(manual,DVI)//Alanli20070801
+                  else
+                      CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, _P2_HDMI_SCR_00, ~(_BIT3 | _BIT2), (_BIT3 | _BIT2));/
+             -/Set HDMI/DVI switch mode(manual,DVI)//Alanli20070801
+                      CScalerSetDataPortBit(_P2_HDMI_ADDR_PORT_C9, 0X51, ~(_BIT7), 0X00);//Set HDMI/DVI switch mode(manu
+             -al,DVI)//Alanli20070801
+                             */  
+               
+                  CScalerPageSelect(_PAGE2);
+                  CScalerSetBit(_SYNC_CTRL_49, ~(_BIT1 | _BIT0), 0x00);
+                  CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT1 | _BIT0), _BIT1 | _BIT0);
+                  CScalerSetBit(_P2_UP_DOWN_CTRL0_B5, ~(_BIT7), _BIT7);
+              
+                  CScalerSetBit(_IPH_ACT_WID_H_16, ~_BIT3, _BIT3);                                                //TMDS
+             -/Video8:TMDS
+              
+                  // Modify by Ericlee for add DVI 20070830
+                  switch (CGetSourcePortType(_GET_INPUT_SOURCE()))
+                  {
+                  case _DVI_PORT:
+                  case _HDMI_PORT:
+                  case _DVI_D0_PORT:
+                  case _HDMI_D0_PORT:  // D0
+                      CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~_BIT1, 0x00);
+                      CScalerSetBit(_P2_HDCP_PORT_CTRL_C2, ~_BIT1, _DDC_CHANNEL_FOR_D0);
+                      // R/B swap & P/N Swap    
+                      CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~(_BIT6 | _BIT5), _CHANNEL_D0_RG_SWAP | _CHANNEL_D0_PN_SWA
+             -P);
+                      break;
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 8   
+
+              
+                  case _DVI_D1_PORT:
+                  case _HDMI_D1_PORT:  // D1
+                      CScalerSetBit(_P2_TMDS_MEAS_RESULT0_A2, ~_BIT1, _BIT1);
+                      CScalerSetBit(_P2_HDCP_PORT_CTRL_C2, ~_BIT1, _DDC_CHANNEL_FOR_D1);
+                      // R/B swap & P/N Swap    
+                      CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~(_BIT6 | _BIT5), _CHANNEL_D1_RG_SWAP | _CHANNEL_D1_PN_SWA
+             -P);
+                      break;
+                  }
+              
+                  CScalerSetBit(_P2_HDCP_CTRL_C0, ~_BIT0, _BIT0);
+              
+                  CScalerPageSelect(_PAGE2);
+              
+                  if(ucPar == _DE_ONLY_ON)
+                      CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~_BIT7, _BIT7);
+                  else
+                      CScalerSetBit(_P2_POWER_ON_OFF_CTRL_A7, ~_BIT7, 0x00);
+              
+                  CScalerRead(_P2_UP_DOWN_CTRL1_B6, 1, pData, _NON_AUTOINC);
+                   pData[0] &= 0xf0;
+                  /*if(pData[0] == 0xe0) 
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x20);
+                  else if((pData[0] == 0x80) | (pData[0] == 0x60) | (pData[0] == 0x10))
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x24);
+                  else if((pData[0] == 0x40) | (pData[0] == 0x30))
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x2b);
+                  else
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x24);*/
+              
+                  if(pData[0] == 0xe0)
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x24);
+                  else if((pData[0] == 0x80) | (pData[0] == 0x60) | (pData[0] == 0x10))
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x2c);
+                  else if((pData[0] == 0x40) | (pData[0] == 0x30))
+                      CScalerSetByte(_P2_RGB_PLL_SETTING_AE, 0x30);
+                  else
+                      return _FALSE;  
+              
+                  if(pData[0] == 0xe0)
+                      CScalerSetByte(_P2_ADAPTIVE_EQUALIZER2_B8, 0x01);
+                  else
+                      CScalerSetByte(_P2_ADAPTIVE_EQUALIZER2_B8, 0x00);
+              
+                  // EricLee for ATI9250,ATI9550
+                  CScalerSetBit(_P2_ANALOG_BIAS_CTRL_AA, ~(_BIT5), 0x00);
+                  CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT3 | _BIT2), 0x00);
+                  /*
+                  if(_GET_INPUT_SOURCE() == _SOURCE_DVI)
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), _BIT4); 
+                  else if(_GET_INPUT_SOURCE() == _SOURCE_HDMI)
+                  {   // eric 0617
+                      //CScalerSetBit(_P2_ANALOG_BIAS_CTRL_AA, ~(_BIT2), _BIT2);
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), (_BIT6 | _BIT5 | _BIT4));   
+                  }*/
+                      if(_GET_INPUT_SOURCE() == _SOURCE_HDMI && _GET_INPUT_SOURCE() == _SOURCE_DVI)
+                  {   // eric 0617
+                      //CScalerSetBit(_P2_ANALOG_BIAS_CTRL_AA, ~(_BIT2), _BIT2);
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), (_BIT6 | _BIT5 | _BIT4));   
+                  }
+                  
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 9   
+
+                  else
+                  {
+                      CScalerSetBit(_P2_ANALOG_BIAS_CTRL_AA, ~(_BIT5), _BIT5);
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT3 | _BIT2), 0x00);
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), _BIT6 | _BIT5 | _BIT4); 
+                  }
+              
+                  for(cnt0=0;cnt0<2;cnt0++)
+                  {
+                      for(cnt1=0;cnt1<2;cnt1++)
+                      {
+                          CScalerSetByte(_P2_TMDS_CTRL_A4, 0xf8);
+                          CTimerDelayXms(25);
+              
+                          CScalerRead(_P2_TMDS_CTRL_A4, 1, pData, _NON_AUTOINC);
+              
+                          if(ucPar == _DE_ONLY_ON)
+                              pData[0] = ((pData[0] & 0xe0) == 0xe0) ? _TRUE : _FALSE;
+                          else
+                              pData[0] = ((pData[0] & 0xf8) == 0xf8) ? _TRUE : _FALSE;
+              
+                          if(pData[0])
+                          {
+                              CScalerRead(_P2_UP_DOWN_CTRL1_B6, 1, pData, _NON_AUTOINC);
+                              pData[0] &= 0xf0;
+              
+                              if((pData[0] == 0xe0) || (pData[0] == 0x80) || (pData[0] == 0x60) || (pData[0] == 0x40) ||
+             - (pData[0] == 0x30))
+                              {
+                          #if(_HDMI_SUPPORT == _ON)
+                                  if(CHdmiFormatDetect())
+                                  {
+                                       if(!CHdmiVideoSetting())
+                                           return _FALSE;
+                                  }
+                                  else
+                                  {
+                                      CHdmiVideoSetting();
+                                  }
+                                      /*
+                          #else
+                                   if(CHdmiFormatDetect())
+                                          return _FALSE;
+                                          */
+                          #endif
+                                                      
+              #if(_HDMI_SUPPORT == _ON)//DVI need enable compensation,otherwise color is error.
+                                  if(!CHdmiFormatDetect())
+              #endif
+                                  CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT3 | _BIT2), _BIT2);
+              
+                                  return _TRUE;
+                              }
+                          }
+              #if(_HDMI_SUPPORT == _ON)
+                          if(!CHdmiFormatDetect())
+              #endif
+                          CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT3 | _BIT2), _BIT2);
+                          }
+              
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT6 | _BIT5 | _BIT4), _BIT4);
+                      CScalerSetBit(_P2_ANALOG_COMMON_CTRL2_AB, ~(_BIT3 | _BIT2), 0x00);
+C51 COMPILER V7.06   SOURCE                                                                04/29/2010 18:06:02 PAGE 10  
+
+                  }
+              
+                  return _FALSE;
+              }
+              #endif  // End of #if(_TMDS_SUPPORT == _ON)
+ 541          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =    394    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =      1    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

@@ -1,0 +1,532 @@
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE XF_6AC
+OBJECT MODULE PLACED IN .\Output\XF_6AC.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE TV\XF_6AC.C LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Outpu
+                    -t\XF_6AC.lst) OBJECT(.\Output\XF_6AC.obj)
+
+stmt level    source
+
+   1          #include "Core\Header\Include.h"
+   2          #if(_TV_CHIP == _TV_XF_6AC)
+   3          
+   4          //==========================================================================
+   5          //                            kx_CI2CWriteIfPllDM
+   6          //==========================================================================
+   7          void kx_CI2CWriteIfPllDM(BYTE ucTvType, const bit bTunerMute, const BYTE ucAFTMode)
+   8          {
+   9   1          if (bTunerMute)
+  10   1              CMuteOn();
+  11   1      
+  12   1          if (ucAFTMode);
+  13   1      
+  14   1          // Set TDA9886 B,C data
+  15   1          switch(ucTvType)
+  16   1          {
+  17   2          case _TV_PAL_M     :    // 60Hz PAL M
+  18   2          case _TV_NTSC_M    :    // 60Hz NTSC M
+  19   2          case _TV_NTSC_4_BG :    // 60Hz NTSC 4/BG
+  20   2          case _TV_NTSC_4_I  :    // 60Hz NTSC 4/I
+  21   2          case _TV_NTSC_4_DK :    // 60Hz NTSC 4/DK
+  22   2              pData[0] = _TDA9886_B_DATA_NTSC;
+  23   2              pData[1] = _TDA9886_C_DATA_NTSC;
+  24   2              break;
+  25   2      
+  26   2          default:                // Normal sound
+  27   2          case _TV_SECAM_BG  :    // 50Hz SECAM B/G
+  28   2          case _TV_SECAM_DK  :    // 50Hz SECAM D/K
+  29   2          case _TV_PAL_N     :    // 50Hz PAL N
+  30   2          case _TV_PAL_BG    :    // 50Hz PAL B/G
+  31   2          case _TV_PAL_I     :    // 50Hz PAL I
+  32   2          case _TV_PAL_DK    :    // 50Hz PAL D/K
+  33   2              pData[0] = _TDA9886_B_DATA_PAL;
+  34   2              pData[1] = _TDA9886_C_DATA_PAL;
+  35   2              break;
+  36   2      
+  37   2          case _TV_SECAM_L   :
+  38   2              pData[0] = _TDA9886_B_DATA_SECAML;
+  39   2              pData[1] = _TDA9886_C_DATA_SECAML;
+  40   2              break;
+  41   2      
+  42   2          case _TV_SECAM_LL   :
+  43   2              pData[0] = _TDA9886_B_DATA_SECAMLL;
+  44   2              pData[1] = _TDA9886_C_DATA_SECAMLL;
+  45   2              break;
+  46   2          } // end switch
+  47   1      
+  48   1          // Set TDA9886 E data
+  49   1          switch(ucTvType)
+  50   1          {
+  51   2          case _TV_PAL_M     :    // Sound 4.5M  PAL M
+  52   2          case _TV_NTSC_M    :    // Sound 4.5M  NTSC M
+  53   2          case _TV_PAL_N     :    // Sound 4.5M  PAL N 
+  54   2              pData[2] = _TDA9886_E_DATA_NTSC;
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 2   
+
+  55   2              break;
+  56   2      
+  57   2          case _TV_NTSC_4_BG :    // Sound 5.5M  NTSC 4/BG
+  58   2          case _TV_PAL_BG    :    // Sound 5.5M  PAL B/G
+  59   2          case _TV_SECAM_BG  :    // Sound 5.5M  SECAM B/G
+  60   2              pData[2] = _TDA9886_E_DATA_PAL_BG;
+  61   2              break;
+  62   2      
+  63   2          default:                // Normal sound
+  64   2          case _TV_NTSC_4_I  :    // Sound 6.0M  NTSC 4/I
+  65   2          case _TV_PAL_I     :    // Sound 6.0M  PAL I
+  66   2              pData[2] = _TDA9886_E_DATA_PAL_I;
+  67   2              break;
+  68   2      
+  69   2          case _TV_NTSC_4_DK :    // Sound 6.5M  NTSC 4/DK
+  70   2          case _TV_PAL_DK    :    // Sound 6.5M  PAL D/K
+  71   2          case _TV_SECAM_DK  :    // Sound 6.5M  SECAM D/K
+  72   2              pData[2] = _TDA9886_E_DATA_PAL_DK;
+  73   2              break;
+  74   2      
+  75   2          case _TV_SECAM_L   :
+  76   2              pData[2] = _TDA9886_E_DATA_SECAML;
+  77   2              break;
+  78   2      
+  79   2          case _TV_SECAM_LL   :
+  80   2              pData[2] = _TDA9886_E_DATA_SECAMLL;
+  81   2              break;
+  82   2          } // end switch
+  83   1            
+  84   1          CI2cWrite(_ADDR_IfPllDM,0x00,3, pData);  // Set TDA9886
+  85   1      }
+  86          
+  87          //==========================================================================
+  88          //                         kx_CSetTuner
+  89          //==========================================================================
+  90          void kx_CSetTuner(BYTE ucTunerAddress, WORD Freq)
+  91          {          
+  92   1         pData[0] = 6;
+  93   1         pData[1] = ucTunerAddress;
+  94   1         ((WORD *)pData)[1] = Freq;
+  95   1      
+  96   1         pData[4] = _TUNER_CONTROL_BYTE1; 
+  97   1        
+  98   1         if(Freq < _VHF_LOW_BAND)  
+  99   1            pData[5]=_TUNER_LOW_BAND;   // VHFLOW   
+ 100   1         else if(Freq < _VHF_HIGH_BAND)
+ 101   1            pData[5]=_TUNER_MID_BAND;   // VHFHIGH 
+ 102   1         else 
+ 103   1            pData[5]=_TUNER_HIGH_BAND;  //Band select//UHF 
+ 104   1        // pData[6]=_TUNER_CONTROL_BYTE3;
+ 105   1        // pData[7]=_TUNER_CONTROL_BYTE4;
+ 106   1      
+ 107   1         kx_CWriteTuner(pData);
+ 108   1      }
+ 109          
+ 110          //==========================================================================
+ 111          //                         CTvAutoSearch
+ 112          //==========================================================================
+ 113          void CTvAutoSearch(void) small
+ 114          {
+ 115   1          BYTE ucSound      = 0;
+ 116   1          BYTE ucPRG        = 1;
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 3   
+
+ 117   1          BYTE ucmaxchannel = _GET_MAX_CHANNEL();
+ 118   1          WORD iFreq        = _MIN_FREQ;
+ 119   1             
+ 120   1          // Read color and sound type
+ 121   1          if (0 == ucmaxchannel)
+ 122   1          {
+ 123   2              ucSound  = 0;
+ 124   2              CLoadTVModeData(1);
+ 125   2          }
+ 126   1          else
+ 127   1          {
+ 128   2              ucSound  = 0;
+ 129   2              CLoadTVModeData(stTvInfo.CurChn);
+ 130   2          }
+ 131   1      
+ 132   1          // Reset search max tv channel number
+ 133   1          _SET_MAX_CHANNEL(1);
+ 134   1          stTvInfo.CurChn = 1;
+ 135   1              ucPrevChannel   = 1;
+ 136   1          // Save current channel
+ 137   1          CEepromSaveTvData();
+ 138   1      //    CEepromSaveVedioColor();    
+ 139   1      
+ 140   1          kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _NORMAL_MODE);
+ 141   1          CTimerDelayXms(8);
+ 142   1          CShowAutoSerachTotal(ucPRG - 1);   // Show search tv channel number
+ 143   1                          
+ 144   1      #if(_AUTO_SERACH_METHOD == _AUTO_SEARCH_METHOD_1)
+                  CScalerSetBit(_VDISP_CTRL_28, ~_BIT5, 0x00); 
+              #endif
+ 147   1      
+ 148   1              CScalerPageSelect(_PAGE9);              
+ 149   1          CScalerSetByte(_P9_C_LOCK_CONF_B6, 0x6B);
+ 150   1          CTimerDelayXms(200);
+ 151   1          while(1)
+ 152   1          {
+ 153   2              iFreq = CLockChannel(iFreq+40, 1);
+ 154   2      
+ 155   2              if(iFreq < 2)
+ 156   2              {
+ 157   3                  break;
+ 158   3              }
+ 159   2              
+ 160   2              _SET_CH_FREQ(iFreq);
+ 161   2              _SET_CH_SKIP(0);
+ 162   2              CSaveTVModeData(ucPRG);
+ 163   2              
+ 164   2              ucPRG++;
+ 165   2              if(ucPRG > _MAX_CHANNEL_COUNT)
+ 166   2              {
+ 167   3                 ucPRG -= 1;
+ 168   3                 break;
+ 169   3              }
+ 170   2      
+ 171   2              CShowAutoSerachTotal(ucPRG - 1);  // Show search tv channel number
+ 172   2      
+ 173   2          }  // End while
+ 174   1      
+ 175   1          {
+ 176   2          #if(_CHANGE_CHANNEL_MTD == _CHANGE_CHANNEL_M2)
+ 177   2              {
+ 178   3                  BYTE ucChannelCount = ucPRG;
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 4   
+
+ 179   3             
+ 180   3                  for(; ucChannelCount < _MAX_CHANNEL_COUNT; ucChannelCount++)
+ 181   3                  {
+ 182   4                      _SET_CH_COLOR_TYPE(ucTVType);
+ 183   4                      _SET_CH_FREQ((WORD)_MIN_FREQ);
+ 184   4                      _SET_CH_SKIP(1);
+ 185   4                      CSaveTVModeData(ucChannelCount);
+ 186   4                  }
+ 187   3          
+ 188   3              }
+ 189   2          #endif
+ 190   2          
+ 191   2              // Save search channel number
+ 192   2              _SET_MAX_CHANNEL(ucPRG);
+ 193   2              CEepromSaveTvData();
+ 194   2          }
+ 195   1      
+ 196   1          CTimerDelayXms(10);
+ 197   1          CSetTVChannel(1);
+ 198   1      
+ 199   1      //    bChangeChannel = 1;
+ 200   1      
+ 201   1      //      CTimerReactiveTimerEvent(SEC(GET_OSDTIMEOUT()), COsdFxExitEvent);
+ 202   1      
+ 203   1          //kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_OFF, _NORMAL_MODE); // set tv system
+ 204   1         // CModeResetTVMode();
+ 205   1          ucCurrState = _SEARCH_STATE;
+ 206   1      }
+ 207          
+ 208          //==========================================================================
+ 209          //bSearchAction:   0 --> Search down
+ 210          //                 1 --> Search up
+ 211          //==========================================================================
+ 212          void CManualSearch(const bit bSearchAction, const BYTE ucCurrentChannel) small
+ 213          {
+ 214   1          BYTE ucSound           = 0;
+ 215   1          WORD iFreq             = 0;
+ 216   1          WORD ucSatrtSearchFreq = 0;  
+ 217   1         
+ 218   1              CScalerPageSelect(_PAGE9);              
+ 219   1          CScalerSetByte(_P9_C_LOCK_CONF_B6, 0x6B);
+ 220   1          ucSatrtSearchFreq = _GET_CH_FREQ();
+ 221   1      
+ 222   1          kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _NORMAL_MODE);
+ 223   1          CTimerDelayXms(100);
+ 224   1      
+ 225   1          if (ucSatrtSearchFreq > _MAX_FREQ)
+ 226   1              ucSatrtSearchFreq = _MAX_FREQ;
+ 227   1          else if(ucSatrtSearchFreq < _MIN_FREQ)
+ 228   1              ucSatrtSearchFreq = _MIN_FREQ;
+ 229   1      
+ 230   1      
+ 231   1          if (bSearchAction)
+ 232   1              iFreq = CLockChannel(ucSatrtSearchFreq + 40, 1);
+ 233   1          else
+ 234   1              iFreq = CLockChannel(ucSatrtSearchFreq - 40, 0);
+ 235   1      
+ 236   1          if (iFreq > 100)
+ 237   1          {
+ 238   2              _SET_CH_FREQ(iFreq);
+ 239   2              _SET_CH_SKIP(0);
+ 240   2              CSaveTVModeData(ucCurrentChannel);
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 5   
+
+ 241   2          }
+ 242   1          CSetTVChannel(ucCurrentChannel);
+ 243   1      
+ 244   1          CShowAutoSearchSliderInOSD(_GET_CH_FREQ());                         
+ 245   1      
+ 246   1          CTimerDelayXms(50);
+ 247   1          if (kx_CVideoModeLocked())
+ 248   1              CScalerSetBit(_VDISP_CTRL_28, ~_BIT5, 0x00); 
+ 249   1      
+ 250   1      //      CTimerReactiveTimerEvent(SEC(GET_OSDTIMEOUT()), COsdFxExitEvent);
+ 251   1      
+ 252   1          //kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_OFF, _NORMAL_MODE);
+ 253   1         // CModeResetTVMode();
+ 254   1          ucCurrState = _SEARCH_STATE;
+ 255   1      }
+ 256          
+ 257          //==========================================================================
+ 258          //  bCLockMode --> 1: lock up         0 : lock down
+ 259          //==========================================================================
+ 260          WORD CLockChannel(WORD iStartFreq, const bit bCLockMode) small
+ 261          {
+ 262   1          BYTE f            = 0;
+ 263   1          BYTE rData        = 0;
+ 264   1          BYTE LowLevel_CH  = 0;
+ 265   1          BYTE count        = 0;
+ 266   1          WORD freq         = 0;
+ 267   1          WORD iStartFreqBase = iStartFreq;
+ 268   1          BYTE ucPattCount  = 0;
+ 269   1      
+ 270   1          while(1)
+ 271   1          {
+ 272   2              kx_CSetTuner(_ADDR_TUNER, iStartFreq);
+ 273   2      
+ 274   2      #if(_OSD_TYPE == _OSD002)
+                      ucPattCount++;
+                      if (ucPattCount > 50)
+                      {
+                          ucPattCount = 0;
+                          CChangePalette();
+                      } 
+              #endif
+ 282   2      
+ 283   2              if (bCLockMode) // Search up
+ 284   2              {
+ 285   3                  if (iStartFreq > (iStartFreqBase + 300))
+ 286   3                  {
+ 287   4                      if(CKeyStopAutoSearch())
+ 288   4                         return 0;
+ 289   4                  }
+ 290   3              }
+ 291   2              else
+ 292   2              {
+ 293   3                  if (iStartFreq < (iStartFreqBase - 300))
+ 294   3                  {
+ 295   4                      if(CKeyStopAutoSearch())
+ 296   4                         return 0;
+ 297   4                  }
+ 298   3              } 
+ 299   2              
+ 300   2              // Show search channel state 
+ 301   2              CShowAutoSearchSliderInOSD((iStartFreq));                         
+ 302   2      
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 6   
+
+ 303   2              rData = kx_CReadIfPllDM();
+ 304   2      
+ 305   2              switch((rData >> 1) & 0x0f)
+ 306   2              {
+ 307   3              case 7:
+ 308   3                  if (bCLockMode) // Search up
+ 309   3                  {
+ 310   4                      f = 1;
+ 311   4                      //iStartFreq++;
+ 312   4                  }
+ 313   3                  else            // Search down
+ 314   3                  {
+ 315   4                      count++;
+ 316   4                      f |= 0x02;
+ 317   4                  }
+ 318   3                  break;
+ 319   3      
+ 320   3              case 8:
+ 321   3                  if (bCLockMode) // Search up
+ 322   3                  {
+ 323   4                      count++;
+ 324   4                      f |= 0x02;
+ 325   4                  }
+ 326   3                  else            // Search down
+ 327   3                  {
+ 328   4                      f = 1;
+ 329   4                      //iStartFreq--;
+ 330   4                  }
+ 331   3                  break; 
+ 332   3      
+ 333   3              case 1:
+ 334   3              case 2:
+ 335   3              case 3:
+ 336   3              case 4:
+ 337   3              case 5:
+ 338   3              case 6:
+ 339   3                  f |= 0x0a;
+ 340   3                  break; 
+ 341   3              case 9:
+ 342   3              case 10:
+ 343   3              case 11:
+ 344   3              case 12:
+ 345   3              case 13:
+ 346   3              case 14:
+ 347   3                  f |= 0x10;
+ 348   3                  break; 
+ 349   3              case 0:
+ 350   3              case 15:
+ 351   3                  f |= 0x04;
+ 352   3                  freq = iStartFreq;
+ 353   3                  break;
+ 354   3              }
+ 355   2      
+ 356   2                      if (0x1b==f || 0x1a==f) 
+ 357   2                      {
+ 358   3                              LowLevel_CH++;
+ 359   3                  if (0 == freq)
+ 360   3                              freq = iStartFreq;
+ 361   3                      }
+ 362   2                      else
+ 363   2                  LowLevel_CH = 0;
+ 364   2      
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 7   
+
+ 365   2              if((rData & 0xc0) != 0xc0)
+ 366   2              {
+ 367   3                  f     = 0;
+ 368   3                      count = 0;
+ 369   3                //  i    += 4;    
+ 370   3              }
+ 371   2              else if((f==0x1f || LowLevel_CH>4) && ((count > 1 && bCLockMode) || (count > 0 && !bCLockMode)) )
+ 372   2              {
+ 373   3                  kx_CSetTuner(_ADDR_TUNER, freq);
+ 374   3                              CTimerDelayXms(200);
+ 375   3                  CVideoSoftReset();
+ 376   3                  CTimerDelayXms(100);
+ 377   3      
+ 378   3                  switch(CDetectTVSignalType())
+ 379   3                  {
+ 380   4                  case 0:  // MODE_NOSIGNAL
+ 381   4                      LowLevel_CH = 0;  // eric add
+ 382   4                      f = 0;
+ 383   4                      count = 0;
+ 384   4                      break;
+ 385   4      
+ 386   4                  case 1:  // 
+ 387   4                      return freq;
+ 388   4                  }
+ 389   3                  freq = 0;
+ 390   3              }
+ 391   2      
+ 392   2              if (bCLockMode) // Search up
+ 393   2              {
+ 394   3                  iStartFreq++;
+ 395   3                  if (iStartFreq > _MAX_FREQ)
+ 396   3                      return 1;
+ 397   3              }
+ 398   2              else            // Search down
+ 399   2              {
+ 400   3                  iStartFreq--;
+ 401   3                  if (iStartFreq < _MIN_FREQ)
+ 402   3                      return 1;
+ 403   3              }
+ 404   2          }
+ 405   1          return 1;  //Not Find Channel
+ 406   1      }
+ 407          
+ 408          //==========================================================================
+ 409          //                        CSetTVChannel
+ 410          //==========================================================================
+ 411          void CSetTVChannel(const BYTE ucCurrentChannel)
+ 412          {  
+ 413   1          CLoadTVModeData(ucCurrentChannel);    
+ 414   1          kx_CSetTuner(_ADDR_TUNER, _GET_CH_FREQ());
+ 415   1          kx_CI2CWriteIfPllDM(ucTVType, _TUNER_MUTE_ON, _NORMAL_MODE); // set tv system
+ 416   1          CTimerDelayXms(20);
+ 417   1      
+ 418   1      #if (_TV_AFC)
+                  CurrAFCFreq = _GET_CH_FREQ();
+                  AFCState    = _TV_AFC_START;
+              #endif
+ 422   1      
+ 423   1          CSetTvColor(ucTVType);
+ 424   1          if (bChangeChannel == 1)
+ 425   1          {
+ 426   2                  CVideoSoftReset();
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 8   
+
+ 427   2                  CTimerDelayXms(600);
+ 428   2          }
+ 429   1          ucTVSyncFailCount = 251;
+ 430   1      }
+ 431          #if (_TV_AFC)
+              //==========================================================================
+              //                        CTVAFC
+              //==========================================================================
+              void CTVAFC(void)
+              {
+                  BYTE rData = 0;
+              
+                  if (_GET_INPUT_SOURCE() != _SOURCE_VIDEO_TV ||
+                      ucOsdState != _MI_MENU_NONE || bTVNoSignal == 1 || !GET_AFC_MODE())
+                     return;
+              
+                  if (_TV_AFC_TIMEOUT == AFCState)
+                  {
+                      CLoadTVModeData(ucCurrentChannel);    
+                      kx_CSetTuner(_ADDR_TUNER, _GET_CH_FREQ());
+                      AFCState = _TV_AFC_STOP;
+                  }
+                  else if(_TV_AFC_STOP == AFCState)
+                  {
+                      return;
+                  }
+              
+                  rData = kx_CReadIfPllDM();
+              
+                  switch((rData >> 1) & 0x0f)
+                  {
+                  case 8:  // > +187.5KHz
+                  case 9:  //   +162.5KHz
+                  case 10: //   +137.5KHz
+                  case 11: //   +112.5KHz
+                  case 12: //   +87.5KHz
+                  case 13: //   +62.5KHz
+                      if (CurrAFCFreq)
+                          CurrAFCFreq--;
+                      kx_CSetTuner(_ADDR_TUNER, CurrAFCFreq);
+                      break;
+              
+                  case 2:  //   -62.5KHz
+                  case 3:  //   -87.5KHz
+                  case 4:  //   -112.5KHz
+                  case 5:  //   -137.5KHz
+                  case 6:  //   -162.5KHz
+                  case 7:  // > -187.5KHz
+                      CurrAFCFreq++;
+                      kx_CSetTuner(_ADDR_TUNER, CurrAFCFreq);
+                      break;
+              
+                  case 0:   // -12.5KHz
+                  case 1:   // -37.5KHz
+                  case 14:  // +37.5KHz
+                  case 15:  // +12.5KHz
+                      return;
+                  }
+              
+                  AFCState++;
+              }
+              #endif //_TV_AFC
+C51 COMPILER V7.06   XF_6AC                                                                04/29/2010 18:06:15 PAGE 9   
+
+ 489          
+ 490          
+ 491          #endif  //#if(_TV_CHIP == _CDT_3FP212_9886)
+ 492          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   1195    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----       4
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----      22
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----       3
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

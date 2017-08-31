@@ -1,0 +1,1 @@
+"Core\code\mcu\I2c.c" LARGE OPTIMIZE (9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Output\I2c.lst) OBJECT(.\Output\I2c.obj)

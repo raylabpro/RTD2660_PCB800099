@@ -1,0 +1,366 @@
+C51 COMPILER V7.06   OSDRES003                                                             04/29/2010 18:06:08 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE OSDRES003
+OBJECT MODULE PLACED IN .\Output\OsdRes003.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE OSD\OSD003\OsdRes003.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PR
+                    -INT(.\Output\OsdRes003.lst) OBJECT(.\Output\OsdRes003.obj)
+
+stmt level    source
+
+   1          #define __OSDRES003__
+   2          
+   3          
+   4          #include "Core\Header\Include.h"
+   5          
+   6          #if(_OSD_TYPE == _OSD003)
+   7          
+   8          #define FONT_BASE_ADDRESS                       0x300
+   9          
+  10          
+  11          BYTE code tPALETTE_0[] = 
+  12          {
+  13                  //-------------:Palette ----------
+  14              0x00,0x00,0x00, 0x00,0x00,0xd0,     // 0000/0001
+  15              0x00,0xc0,0x00, 0x48,0x88,0xa8,     // 0010/0011
+  16              0xc0,0x00,0x00, 0x80,0x20,0x20,     // 0100/0101
+  17              0xc0,0xc0,0x00, 0xd0,0xd0,0xd0,     // 0110/0111
+  18              0x00,0x00,0x00, 0x00,0x00,0xff,     // 1000/1001
+  19              0x00,0xff,0x00, 0x60,0xff,0xff,     // 1010/1011
+  20              0xff,0x00,0x00, 0xff,0x00,0xff,     // 1100/1101
+  21              0xff,0xff,0x00, 0xff,0xff,0xff,     // 1110/1111
+  22          };
+  23          //-------------------------------------------------------------------------------
+  24          BYTE code tMainWindowStyle[] =
+  25          {
+  26              WINNO(0),
+  27          
+  28              SB_THICKNESS(7) | SB_HEIGHT(7) ,
+  29              SHADOW_COLOR(0) | BORDER_COLOR(0),
+  30            
+  31          
+  32              R_GRADIENT_POLARITY_DEC |
+  33              G_GRADIENT_POLARITY_INC |
+  34              B_GRADIENT_POLARITY_DEC |
+  35              GRADIENT_LEVEL(0) |
+  36              R_COLOR_GRADIENT_EN(0) |
+  37              G_COLOR_GRADIENT_EN(0) |
+  38              B_COLOR_GRADIENT_EN(0),
+  39          
+  40              RESERVED,
+  41              GRADIENT_PER_LEVEL(2) | WINDOW_COLOR(3),
+  42              GRADIENT_FUNCTION_EN(0) |
+  43              GRADIENT_DIRECTION_HOR |
+  44              SHADOW_BORDER_EN(0) |          
+  45              WINDOW_TYPE(0) |
+  46              WINDOW_ENABLE(1)
+  47          };
+  48          
+  49          BYTE code tNosignalWINDOW[] =
+  50          {
+  51              WINNO(0),
+  52              SB_THICKNESS(7) | SB_HEIGHT(7) ,
+  53              SHADOW_COLOR(0) | BORDER_COLOR(0),
+  54              R_GRADIENT_POLARITY_DEC |
+C51 COMPILER V7.06   OSDRES003                                                             04/29/2010 18:06:08 PAGE 2   
+
+  55              G_GRADIENT_POLARITY_INC |
+  56              B_GRADIENT_POLARITY_DEC |
+  57              GRADIENT_LEVEL(0) |
+  58              R_COLOR_GRADIENT_EN(0) |
+  59              G_COLOR_GRADIENT_EN(0) |
+  60              B_COLOR_GRADIENT_EN(0),
+  61              RESERVED,
+  62              GRADIENT_PER_LEVEL(2) | WINDOW_COLOR(2),
+  63              GRADIENT_FUNCTION_EN(0) |
+  64              GRADIENT_DIRECTION_HOR |
+  65              SHADOW_BORDER_EN(0) |          
+  66              WINDOW_TYPE(0) |
+  67              WINDOW_ENABLE(1)   
+  68          };
+  69                  
+  70          BYTE code sVolume_ENG[] = "VOLUME";
+  71          BYTE code sVolume_CHI[] =  "VOLUME";
+  72          BYTE code *sVolume[]        = 
+  73          {
+  74               sVolume_ENG,
+  75               sVolume_CHI,
+  76          };
+  77          BYTE code sSource[]             = "SOURCE";
+  78          BYTE code sLR[]                 = "LR";
+  79          BYTE code sUD[]                 = "UD";
+  80          BYTE code sDisplayRatio[]       = "DISPLAYRATIO";
+  81          BYTE code sExit[]               = "EXIT";
+  82          
+  83          
+  84          #if(OEM_TYPE == RTD2660_VGA_AV_MP5_DMB)
+  85          BYTE code sAV1[] = "AV1";
+  86          BYTE code sAV2[] = "MP5";
+  87          BYTE code sTV[] = "DMB";
+  88          BYTE code sVGA[] = "VGA";
+  89          
+  90          #elif(OEM_TYPE == RTD2660_VGA_AV_MP5)
+              BYTE code sAV1[] = "AV1";
+              BYTE code sAV2[] = "MP5";
+              BYTE code sTV[] = "TV";
+              BYTE code sVGA[] = "VGA";
+              
+              #endif
+  97          
+  98          
+  99          BYTE code sMute[] = "MUTE";
+ 100          
+ 101          BYTE code s16_9[] = "16:9";
+ 102          BYTE code s4_3[] = "4:3";
+ 103          
+ 104          
+ 105          BYTE code sVisatech[] = "VISATECH";
+ 106          BYTE code sNoSignal[] = "NO SIGNAL";
+ 107          BYTE code sReseting[] = "PLEASE WAITING...";
+ 108          BYTE code sStandard[] = "STANDARD";
+ 109          BYTE code sSoft[] = "SOFT";
+ 110          BYTE code sVivid[] = "VIVID";
+ 111          BYTE code sPersonal[] = "PERSONAL";
+ 112          
+ 113          //-------------------------------------------------------------------
+ 114          BYTE code sBrightness_ENG[]     = "BRIGHTNESS";
+ 115          BYTE code sBrightness_CHI[]     = {0x01,0x02,0x03,0x04,0x00};
+ 116          BYTE code *sBrightness[] = 
+C51 COMPILER V7.06   OSDRES003                                                             04/29/2010 18:06:08 PAGE 3   
+
+ 117          {
+ 118                  sBrightness_ENG,
+ 119                  sBrightness_CHI,
+ 120          };
+ 121          //-------------------------------------------------------------------
+ 122          BYTE code sContrast_ENG[]       = "CONTRAST";
+ 123          BYTE code sContrast_CHI[]       = {0x05,0x06,0x07,0x08,0x03,0x04,0x00};
+ 124          BYTE code *sContrast[] = 
+ 125          {
+ 126                  sContrast_ENG,
+ 127                  sContrast_CHI,
+ 128          };
+ 129          //-------------------------------------------------------------------
+ 130          BYTE code sHue_ENG[]            = "TINT";//"HUE";
+ 131          BYTE code sHue_CHI[]            = {0x0e,0x0f,0x09,0x0a,0x00};
+ 132          BYTE code *sHue[] = 
+ 133          {
+ 134                  sHue_ENG,
+ 135                  sHue_CHI,
+ 136          };
+ 137          //-------------------------------------------------------------------
+ 138          BYTE code sSaturation_ENG[]     = "COLOR";//"SATURATION";
+ 139          BYTE code sSaturation_CHI[]     = {0x0b,0x0c,0x0e,0x0f,0x00};
+ 140          BYTE code *sSaturation[] = 
+ 141          {
+ 142                  sSaturation_ENG,
+ 143                  sSaturation_CHI,
+ 144          };
+ 145          //-------------------------------------------------------------------
+ 146          BYTE code sAutoPowerDown_ENG[]  = "AUTO POWER DOWN";
+ 147          BYTE code sAutoPowerDown_CHI[]  = {0x10,0x11,0x12,0x13,0x14,0x15,0x16,0x17,0x00};
+ 148          BYTE code *sAutoPowerDown[] = 
+ 149          {
+ 150                  sAutoPowerDown_ENG,
+ 151                  sAutoPowerDown_CHI,
+ 152          };
+ 153          //-------------------------------------------------------------------
+ 154          BYTE code sLanguage_ENG[]       = "ENGLISH";
+ 155          BYTE code sLanguage_CHI[]       = {0x1c,0x1d,0x1e,0x1f,0x00};
+ 156          BYTE code *sLanguage[] = 
+ 157          {
+ 158                  sLanguage_ENG,
+ 159                  sLanguage_CHI,
+ 160          };
+ 161          //-------------------------------------------------------------------
+ 162          BYTE code sLang_ENG[]   = "LANGUAGE";
+ 163          BYTE code sLang_CHI[]   = {0x61,0x62,0x63,0x64,0x00};
+ 164          BYTE code *sLangName[] = 
+ 165          {
+ 166                  sLang_ENG,
+ 167                  sLang_CHI,
+ 168          };
+ 169          //-------------------------------------------------------------------
+ 170          BYTE code sAutoADJ_ENG[]        = "AUTO ADJUST";
+ 171          BYTE code sAutoADJ_CHI[]        = "AUTO ADJUST";
+ 172          BYTE code *sAutoADJName[] = 
+ 173          {
+ 174                  sAutoADJ_ENG,
+ 175                  sAutoADJ_CHI,
+ 176          };
+ 177          //-------------------------------------------------------------------
+ 178          
+C51 COMPILER V7.06   OSDRES003                                                             04/29/2010 18:06:08 PAGE 4   
+
+ 179          BYTE code sFm_ENG[]     = "FM";
+ 180          BYTE code sFm_CHI[]     = "FM";
+ 181          BYTE code *sFm[] = 
+ 182          {
+ 183                  sFm_ENG,
+ 184                  sFm_CHI,
+ 185          };
+ 186          code BYTE sFM_OFF[] = {"OFF"}; 
+ 187          code BYTE sFM_A1[] = {"87.7"};
+ 188          code BYTE sFM_A2[] = {"87.9"};
+ 189          code BYTE sFM_A3[] = {"88.0"};
+ 190          code BYTE sFM_A4[] = {"88.1"};
+ 191          code BYTE sFM_A5[] = {"88.2"};
+ 192          code BYTE sFM_A6[] = {"88.3"};
+ 193          code BYTE sFM_A7[] = {"88.4"};
+ 194          code BYTE sFM_A8[] = {"88.5"};
+ 195          code BYTE sFM_B1[] = {"88.6"};
+ 196          code BYTE sFM_B2[] = {"88.7"};
+ 197          code BYTE sFM_B3[] = {"88.8"};
+ 198          code BYTE sFM_B4[] = {"88.9"};
+ 199          code BYTE sFM_B5[] = {"89.0"};
+ 200          code BYTE sFM_B6[] = {"89.1"};
+ 201          code BYTE sFM_B7[] = {"89.2"};
+ 202          code BYTE sFM_B8[] = {"89.4"};
+ 203          
+ 204          code BYTE sMhz[] = {"MHZ"};
+ 205          
+ 206          //-------------------------------------------------------------------
+ 207          
+ 208          BYTE code sReset_ENG[]          = "RESET";
+ 209          BYTE code sReset_CHI[]          = {0x3c,0x3d,0x3e,0x3f,0x00};
+ 210          BYTE code *sReset[] = 
+ 211          {
+ 212                  sReset_ENG,
+ 213                  sReset_CHI,
+ 214          };
+ 215          //-------------------------------------------------------------------
+ 216          BYTE code sOn_ENG[] = "ON";
+ 217          BYTE code sOn_CHI[] = {0x78,0x79,0x00};
+ 218          BYTE code *sOn[] = 
+ 219          {
+ 220                  sOn_ENG,
+ 221                  sOn_CHI,
+ 222          };
+ 223          //-------------------------------------------------------------------
+ 224          BYTE code sOff_ENG[] = "OFF";
+ 225          BYTE code sOff_CHI[] = {0x14,0x15,0x00};
+ 226          BYTE code *sOff[] = 
+ 227          {
+ 228                  sOff_ENG,
+ 229                  sOff_CHI,
+ 230          };
+ 231          //-------------------------------------------------------------------
+ 232          BYTE code sYes_ENG[] = "YES";
+ 233          BYTE code sYes_CHI[] = {0x5b,0x5c,0x00};
+ 234          BYTE code *sYes[] = 
+ 235          {
+ 236                  sYes_ENG,
+ 237                  sYes_CHI,
+ 238          };
+ 239          //-------------------------------------------------------------------
+ 240          BYTE code sNo_ENG[] = "NO";
+C51 COMPILER V7.06   OSDRES003                                                             04/29/2010 18:06:08 PAGE 5   
+
+ 241          BYTE code sNo_CHI[] = {0x5d,0x5e,0x00};
+ 242          BYTE code *sNo[] = 
+ 243          {
+ 244                  sNo_ENG,
+ 245                  sNo_CHI,
+ 246          };
+ 247          
+ 248          //-------------------------------------------------------------------
+ 249          BYTE code sTvSystem_ENG[] = "TV SYSTEM";
+ 250          BYTE code sTvSystem_CHI[] = {0x0b,0x0c,0x0e,0x0f,0x65,0x66,0x67,0x68,0x00};
+ 251          BYTE code *sTvSystem[] = 
+ 252          {
+ 253                  sTvSystem_ENG,
+ 254                  sTvSystem_CHI,
+ 255          };
+ 256          //-------------------------------------------------------------------
+ 257          BYTE code sAutoSearch_ENG[] = "AUTO SEARCH";
+ 258          BYTE code sAutoSearch_CHI[] = {0x10,0x11,0x12,0x13,0x69,0x6a,0x6b,0x6c,0x00};
+ 259          BYTE code *sAutoSearch[] = 
+ 260          {
+ 261                  sAutoSearch_ENG,
+ 262                  sAutoSearch_CHI,
+ 263          };
+ 264          //-------------------------------------------------------------------
+ 265          BYTE code sManualSearch_ENG[] = "MANUAL SEARCH";
+ 266          BYTE code sManualSearch_CHI[] = {0x76,0x77,0x12,0x13,0x69,0x6a,0x6b,0x6c,0x00};
+ 267          BYTE code *sManualSearch[] = 
+ 268          {
+ 269                  sManualSearch_ENG,
+ 270                  sManualSearch_CHI,
+ 271          };
+ 272          //-------------------------------------------------------------------
+ 273          BYTE code sTuning_ENG[] = "TUNING";
+ 274          BYTE code sTuning_CHI[] = {0x6d,0x6e,0x09,0x0a,0x00};
+ 275          BYTE code *sTuning[] = 
+ 276          {
+ 277                  sTuning_ENG,
+ 278                  sTuning_CHI,
+ 279          };
+ 280          //-------------------------------------------------------------------
+ 281          BYTE code sChannel_ENG[] = "CHANNEL";
+ 282          BYTE code sChannel_CHI[] = {0x6b,0x6c,0x70,0x71,0x00};
+ 283          BYTE code *sChannel[] = 
+ 284          {
+ 285                  sChannel_ENG,
+ 286                  sChannel_CHI,
+ 287          };
+ 288          //-------------------------------------------------------------------
+ 289          BYTE code sBlue_ENG[] = "BLUE";
+ 290          BYTE code sBlue_CHI[] = {0x72,0x73,0x74,0x75,0x00};
+ 291          BYTE code *sBlue[] = 
+ 292          {
+ 293                  sBlue_ENG,
+ 294                  sBlue_CHI,
+ 295          };
+ 296          //-------------------------------------------------------------------
+ 297          BYTE code sTVNONE[] =" ";
+ 298          BYTE code sTVNTSC_M[] ="NTSC M";
+ 299          BYTE code sTVNTSC_4_BG[] ="NTSC M";
+ 300          BYTE code sTVNTSC_4_DK[] ="NTSC M";
+ 301          BYTE code sTVNTSC_4_I[] ="NTSC M";
+ 302          BYTE code sTVPAL_M[]   = "PAL M";
+C51 COMPILER V7.06   OSDRES003                                                             04/29/2010 18:06:08 PAGE 6   
+
+ 303          BYTE code sTVPAL_BG[]  = "PAL BG";
+ 304          BYTE code sTVPAL_I[]   = "PAL I";
+ 305          BYTE code sTVPAL_DK[]  = "PAL DK";
+ 306          BYTE code sTVPAL_N[]  = "PAL N";
+ 307          BYTE code sTVSECAM_BG[] ="SECAM BG";
+ 308          BYTE code sTVSECAM_DK[] ="SECAM DK";
+ 309          BYTE code sTVSECAM_L[] ="SECAM L";
+ 310          BYTE code sTVSECAM_LL[] ="SECAM LL";
+ 311          
+ 312          WORD code  *sTVType[] =
+ 313          {
+ 314                  sTVNONE,
+ 315              sTVNTSC_M,
+ 316              sTVNTSC_4_BG,
+ 317              sTVNTSC_4_DK,
+ 318              sTVNTSC_4_I,
+ 319              sTVPAL_M,
+ 320              sTVPAL_BG,
+ 321              sTVPAL_I,
+ 322              sTVPAL_DK,
+ 323              sTVPAL_N,
+ 324              sTVSECAM_BG,
+ 325              sTVSECAM_DK,
+ 326              sTVSECAM_L,
+ 327              sTVSECAM_LL,
+ 328          };
+ 329          
+ 330          //-------------------------------------------------------------------
+ 331          #endif                  //#if(_OSD_TYPE == _OSD003)
+ 332          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   ----    ----
+   CONSTANT SIZE    =    658    ----
+   XDATA SIZE       =    112    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

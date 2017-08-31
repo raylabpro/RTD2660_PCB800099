@@ -1,0 +1,89 @@
+C51 COMPILER V7.06   MCU                                                                   04/29/2010 18:06:17 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE MCU
+OBJECT MODULE PLACED IN .\Output\Mcu.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Core\code\mcu\Mcu.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT
+                    -(.\Output\Mcu.lst) OBJECT(.\Output\Mcu.obj)
+
+stmt level    source
+
+   1          //----------------------------------------------------------------------------------------------------
+   2          // ID Code      : Mcu.c No.0002
+   3          // Update Note  :
+   4          //
+   5          //----------------------------------------------------------------------------------------------------
+   6          
+   7          #define __MCU__
+   8          
+   9          #include  "Core\Header\Include.h"
+  10          
+  11          #if(_MCU_TYPE == _REALTEK_RTD3580D_EMCU)
+  12          /**
+  13          * CMcuInitial
+  14          * Initialize the MCU _REALTEK_RTD3580D_EMCU
+  15          * @param <none>
+  16          * @return {none}
+  17          *
+  18          */
+  19          
+  20          void CMcuInitial(void)
+  21          {
+  22   1          IE      = 0x00;                         // Disable all interrupts
+  23   1          TMOD    = 0x11;                         // Program Timer0 & Timer1 to Mode#1
+  24   1          TR0     = 0;                            // Stop Timer0
+  25   1          TF0     = 0;                            // Clear Timer0 Overflow Bit
+  26   1          TL0     = _TIMER0_COUNT_LBYTE;          // Load Timer0 low-byte   (for 1ms)
+  27   1          TH0     = _TIMER0_COUNT_HBYTE;          // Load Timer0 high-byte  (for 1ms)
+  28   1          TR1     = 0;                            // Stop Timer1
+  29   1          TF1     = 0;                            // Clear Timer1 Overflow Bit
+  30   1          IE      = 0x8a;                         // Enable interrupts of Timer0
+  31   1      
+  32   1          MCU_WATCHDOG_TIMER_FFEA     = 0x00;                                 //dis wdt, wdt default enable
+  33   1      
+  34   1          MCU_WATCHDOG_TIMER_FFEA     |= 0x40;                                //clr wdt.//eric 20070627
+  35   1          MCU_CTRL_FFED                       = 0x80;                                 //FlashDIV=1    
+  36   1      
+  37   1       
+  38   1          MCU_PIN_SHARE_CTRL04_FF9A   |= 0x05;                                //P6.6/P6.7 opendrain output for I2C master 
+  39   1              MCU_PORT_READ_CTRL_FFC0         = 0xfd;                                 //read All GPIO value from bus,except p3 
+  40   1      
+  41   1          MCU_BANK_SWITCH_CTRL_FFFC   = 0x0b;                                                                                                 // enable global XFR (¡¹ For Bank Switching System ¡¹
+             -)
+  42   1          MCU_BANK_START_FFFD                 = _FL_SD_BANK_NUMBER;                                   // Xdata_Bstart
+  43   1          MCU_BANK_SEL_FFFE                   = 0;                                                                                                    // Xdata_bank_sel, Bank0
+  44   1      
+  45   1              MCU_CLOCK_CTRL_FFEE                     |= 0x40;                        //keep mcu peripheral running while mcu stopped by spi flash access
+  46   1              
+  47   1          #if (_MCU_PWM_SUPPORT)
+  48   1          {
+  49   2              MCU_PWML_FF46                   |= 0x80;                                //PWM_W_DB_EN   
+  50   2              MCU_PWM_EN_FF48                 = _MCU_PWM_SUPPORT;         //PWM output enable 
+  51   2          }
+  52   1          #endif
+  53   1      
+C51 COMPILER V7.06   MCU                                                                   04/29/2010 18:06:17 PAGE 2   
+
+  54   1          CMiscSetPinShare();
+  55   1          CWriteDisable();
+  56   1      
+  57   1      
+  58   1      }
+  59          
+  60          #endif
+  61          
+  62          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =     88    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----    ----
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----    ----
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)

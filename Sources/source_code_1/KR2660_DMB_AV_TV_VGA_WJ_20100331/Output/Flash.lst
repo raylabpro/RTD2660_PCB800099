@@ -1,0 +1,743 @@
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 1   
+
+
+C51 COMPILER V7.06, COMPILATION OF MODULE FLASH
+OBJECT MODULE PLACED IN .\Output\Flash.obj
+COMPILER INVOKED BY: C:\Keil\C51\BIN\C51.EXE Flash\Flash.c LARGE OPTIMIZE(9,SPEED) BROWSE DEBUG OBJECTEXTEND PRINT(.\Out
+                    -put\Flash.lst) OBJECT(.\Output\Flash.obj)
+
+stmt level    source
+
+   1          // Modify for using Flash to replace Eeprom.
+   2          
+   3          //----------------------------------------------------------------------------------------------------
+   4          // ID Code      : Flash.c No.0000
+   5          // Update Note  :
+   6          //
+   7          //----------------------------------------------------------------------------------------------------
+   8          
+   9          #define __KX_FLASH__
+  10          
+  11          #include "Core\Header\Include.h"
+  12          
+  13          #if(_MEMORY_LOCATION == _FLASH)
+  14          //----------------------------------------------------------------------------------------------------
+  15          
+  16          #define _VERSION_CODE               0xAA
+  17          
+  18          
+  19          void CEepromStartupCheck(void)
+  20          {
+  21   1          BYTE xdata *pFlashVersion = 0xF000;
+  22   1      
+  23   1          //This delay is for Eeprom power rising time when the connector plug in (VGA_5V or DVI_5V).
+  24   1          CTimerDelayXms(20);    //CTimerDelayXms(20);
+  25   1      
+  26   1          if(*pFlashVersion != _VERSION_CODE)
+  27   1          {
+  28   2              CUartSendString("EEProm Load default.\n");
+  29   2              CEepromLoadDefault(1);
+  30   2      
+  31   2              CFlashWREN(0);        
+  32   2              *pFlashVersion = _VERSION_CODE;
+  33   2              CFlashWRDis();
+  34   2          }
+  35   1          else
+  36   1          {
+  37   2              CEepromLoadSystemData();
+  38   2              CEepromLoadOsdUserData();
+  39   2              CEepromLoadAdcData();
+  40   2              CEepromLoadBriConData();
+  41   2              CEepromLoadColorTempData();
+  42   2              CEepromLoadTvData();    
+  43   2              CEepromLoadHueSatData();
+  44   2              CEepromLoadAudioData();
+  45   2              CLoadTVModeData(stTvInfo.CurChn);
+  46   2          }
+  47   1      }
+  48          //----------------------------------------------------------------------------------------------------
+  49          
+  50          void CEepromLoadDefault(bit bMode)
+  51          {
+  52   1          StructModeUserFIFODataType stFIFOModeTemp;
+  53   1      
+  54   1          if((GET_MODE_SEARCH_TYPE() == _USER_MODE_TYPE) && (stModeInfo.ModeCurr < 16))
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 2   
+
+  55   1          {
+  56   2              CEepromLoadUserFIFOModeData((stModeInfo.ModeCurr / 4), pData);
+  57   2              stFIFOModeTemp.ModeNum = pData[(stModeInfo.ModeCurr % 4) * 4];
+  58   2          }
+  59   1      
+  60   1          CEepromInitialModeData();
+  61   1          CEepromInitialUserFIFOModeData();
+  62   1          CEepromInitialCenterModeData();
+  63   1          CEepromLoadSystemDataDefault();
+  64   1          CEepromLoadOsdUserDataDefault();
+  65   1          
+  66   1          if (bMode)
+  67   1          {
+  68   2             CEepromLoadAdcDataDefault();
+  69   2             CEepromLoadYPbPrDataDefault();
+  70   2             CEepromLoadColorTempDataDefault();
+  71   2          }
+  72   1          
+  73   1          CEepromLoadBriConDataDefault();
+  74   1          CEepromLoadHueSatDataDefault();
+  75   1          CEepromLoadAudioDataDefault();
+  76   1      
+  77   1          CEepromLoadTvDataDefault();
+  78   1          CLoadTVModeData(stTvInfo.CurChn);
+  79   1      
+  80   1          if((GET_MODE_SEARCH_TYPE() == _USER_MODE_TYPE) && (stModeInfo.ModeCurr < 16))
+  81   1          {
+  82   2              if(stSystemData.UserFIFOMode >= 15)
+  83   2                  stSystemData.UserFIFOMode = 0;
+  84   2              else
+  85   2                  stSystemData.UserFIFOMode++;
+  86   2      
+  87   2              stFIFOModeTemp.IHFreq  = stModeInfo.IHFreq;
+  88   2              stFIFOModeTemp.IVFreq  = stModeInfo.IVFreq;
+  89   2              CEepromSaveUserFIFOModeData(stFIFOModeTemp);
+  90   2      
+  91   2              stModeUserData.FirstAuto    = 0;
+  92   2              stModeUserData.HPosition    = tINPUTMODE_PRESET_TABLE[stFIFOModeTemp.ModeNum].IHStartPos;
+  93   2              stModeUserData.VPosition    = tINPUTMODE_PRESET_TABLE[stFIFOModeTemp.ModeNum].IVStartPos;
+  94   2              stModeUserData.Clock        = tINPUTMODE_PRESET_TABLE[stFIFOModeTemp.ModeNum].IHTotal;
+  95   2              stModeUserData.Phase        = 0;
+  96   2              CEepromSaveModeData(stSystemData.UserFIFOMode);
+  97   2              stModeInfo.ModeCurr = stSystemData.UserFIFOMode;
+  98   2          }
+  99   1          else if((GET_MODE_SEARCH_TYPE() == _PRESET_MODE_TYPE) && (stModeInfo.ModeCurr < _MAX_PRESET_MODE))
+ 100   1          {
+ 101   2              CEepromLoadModeData(stModeInfo.ModeCurr);
+ 102   2              CEepromLoadCenterModeData(stModeInfo.ModeCurr);
+ 103   2          }
+ 104   1      
+ 105   1      #if(0)//_VIDEO_TV_SUPPORT)
+                  if (bMode)
+                      CRecallTVData();
+              #endif
+ 109   1      }
+ 110          //----------------------------------------------------------------------------------------------------
+ 111          
+ 112          
+ 113          //----------------------------------------------------------------------------------------------------
+ 114          void FLSaveStruct(BYTE ucPage,BYTE Cnt,BYTE *Array)
+ 115          {
+ 116   1              bit fRT;
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 3   
+
+ 117   1              BYTE ucWriteSize;
+ 118   1              BYTE ID = 1;
+ 119   1              BYTE ucWriteCnt = Cnt / 14;
+ 120   1              if(Cnt % 14)    ucWriteCnt++;
+ 121   1      
+ 122   1              CFlashWREN(ucPage);
+ 123   1              
+ 124   1              while(Cnt)
+ 125   1              {
+ 126   2                      if(Cnt > 14)
+ 127   2                              ucWriteSize = 14;
+ 128   2                      else ucWriteSize = Cnt;
+ 129   2                      Cnt -= ucWriteSize;
+ 130   2                      
+ 131   2                      FillFFToMemory(g_szFlashBuf,16);
+ 132   2                      MemoryCpy(g_szFlashBuf, Array, ucWriteSize);
+ 133   2                      Array += ucWriteSize;
+ 134   2      
+ 135   2                      fRT = FLSaveData(ucPage,ID,ucWriteCnt);
+ 136   2                      if(fRT == _FAIL)
+ 137   2                      {
+ 138   3                              CUartPrintf("Erase Page:", ucPage);
+ 139   3                              CFlashErase(ucPage);
+ 140   3                              FLSaveData(ucPage,ID,ucWriteCnt);
+ 141   3                      }
+ 142   2      
+ 143   2                      ID++;
+ 144   2              }
+ 145   1      
+ 146   1              CFlashWRDis();
+ 147   1      }
+ 148          //----------------------------------------------------------------------------------------------------
+ 149          bit FLLoadStruct(BYTE ucPage,BYTE ID,BYTE Cnt,BYTE *Array)
+ 150          {
+ 151   1              bit fRT;
+ 152   1              BYTE ucSize;
+ 153   1              
+ 154   1              while(Cnt)
+ 155   1              {
+ 156   2                      if(Cnt > 14)
+ 157   2                              ucSize = 14;
+ 158   2                      else ucSize = Cnt;
+ 159   2                      Cnt -= ucSize;
+ 160   2      
+ 161   2                      fRT = FLLoadData(ucPage,ID++);
+ 162   2      
+ 163   2                      if(fRT == _FAIL)
+ 164   2                      {
+ 165   3                              return _FAIL;
+ 166   3                      }
+ 167   2                      
+ 168   2                      MemoryCpy(Array,g_szFlashBuf,ucSize);
+ 169   2                      Array += ucSize;
+ 170   2                      
+ 171   2              }
+ 172   1      
+ 173   1              return _SUCCESS;
+ 174   1      }
+ 175          //----------------------------------------------------------------------------------------------------
+ 176          bit FLRandomPageSaveData(BYTE ucPage,BYTE ID,BYTE Cnt,BYTE *Array)
+ 177          {
+ 178   1              bit fRT;
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 4   
+
+ 179   1              BYTE ucWriteSize;
+ 180   1              BYTE ucWriteCnt = Cnt / 14;
+ 181   1              if(Cnt % 14)    ucWriteCnt++;
+ 182   1      
+ 183   1              CFlashWREN(ucPage);
+ 184   1              
+ 185   1              while(Cnt)
+ 186   1              {
+ 187   2                      if(Cnt > 14)
+ 188   2                              ucWriteSize = 14;
+ 189   2                      else ucWriteSize = Cnt;
+ 190   2                      Cnt -= ucWriteSize;
+ 191   2                      
+ 192   2                      FillFFToMemory(g_szFlashBuf,16);
+ 193   2                      MemoryCpy(g_szFlashBuf, Array, ucWriteSize);
+ 194   2                      Array += ucWriteSize;
+ 195   2      
+ 196   2                      fRT = FLSaveData(ucPage,ID,ucWriteCnt);
+ 197   2                      if(fRT == _FAIL)
+ 198   2                      {
+ 199   3                              
+ 200   3                              //CFlashErase(ucPage);
+ 201   3                              //FLSaveData(ucPage,ID,ucWriteCnt);
+ 202   3                              break;
+ 203   3                      }
+ 204   2      
+ 205   2                      ID++;
+ 206   2              }
+ 207   1      
+ 208   1              CFlashWRDis();
+ 209   1      
+ 210   1              return fRT;
+ 211   1      }
+ 212          //----------------------------------------------------------------------------------------------------
+ 213          void FLRandomPageSaveStruct(BYTE ucPageIndex,BYTE ID,BYTE Cnt,BYTE *Array)
+ 214          {
+ 215   1              bit fRT;
+ 216   1              BYTE ucNewPage;
+ 217   1              BYTE ucPage = g_szRandomSavePage[ucPageIndex];
+ 218   1      
+ 219   1              // 如果第一次保存执行下面的条件
+ 220   1              if(ucPage == 0xFF)
+ 221   1              {
+ 222   2                      ucPage = FoundEmptyRandomPage();
+ 223   2                      CUartPrintf("Fonnd Empty Page:", ucPage);
+ 224   2      
+ 225   2                      // 如果没有发现没有用到的 Page,那么退出
+ 226   2                      if(ucPage == 0xFF)
+ 227   2                              return;
+ 228   2      
+ 229   2                      g_szRandomSavePage[ucPageIndex] = ucPage;
+ 230   2                      InitRandomPage(ucPage,ucPageIndex);
+ 231   2              }
+ 232   1      
+ 233   1              fRT = FLRandomPageSaveData(ucPage,ID,Cnt,Array);
+ 234   1      
+ 235   1              // 如果失败，将数据移到新的 Page 中。
+ 236   1              if(fRT == _FAIL)
+ 237   1              {
+ 238   2                      ucNewPage = FoundEmptyRandomPage();
+ 239   2      
+ 240   2                      CUartPrintf("Fonnd new Empty Page:", ucNewPage);
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 5   
+
+ 241   2      
+ 242   2                      // 如果没有发现没有用到的 Page,那么退出
+ 243   2                      if(ucNewPage == 0xFF)
+ 244   2                              return;
+ 245   2      
+ 246   2                      CUartPrintf("Move page:", ucPage);
+ 247   2                      CUartPrintf("to:", ucNewPage);
+ 248   2      
+ 249   2                      // 将数据,移动新的 Page 中.
+ 250   2                      g_szRandomSavePage[ucPageIndex] = ucNewPage;
+ 251   2                      InitRandomPage(ucNewPage,ucPageIndex);
+ 252   2                      CFlashMovePage(ucNewPage,ucPage);
+ 253   2      
+ 254   2                      // 移动数据后将以前的页面删除
+ 255   2                      CFlashErase(ucPage);
+ 256   2                      FLRandomPageSaveData(ucNewPage,ID,Cnt,Array);
+ 257   2              }
+ 258   1      }
+ 259          //----------------------------------------------------------------------------------------------------
+ 260          
+ 261          
+ 262          void CEepromSaveSystemData(void)
+ 263          {
+ 264   1              FLSaveStruct(_FL_SYSTEM_DATA_PAGE,sizeof(StructSystemDataType),&stSystemData.MonitorFlag);
+ 265   1      }
+ 266          //----------------------------------------------------------------------------------------------------
+ 267          void CEepromLoadSystemData(void)
+ 268          {
+ 269   1              bit fRT = FLLoadStruct(_FL_SYSTEM_DATA_PAGE,1,sizeof(StructSystemDataType),&stSystemData.MonitorFlag);
+ 270   1      
+ 271   1              if(fRT == _FAIL)
+ 272   1              {
+ 273   2                      CEepromLoadSystemDataDefault();
+ 274   2              }
+ 275   1      }
+ 276          //----------------------------------------------------------------------------------------------------
+ 277          void CEepromLoadSystemDataDefault(void)
+ 278          {
+ 279   1          stSystemData = tEEPROM_SYSTEM_DATA;
+ 280   1          //MemoryCpy(&stSystemData.MonitorFlag,tEEPROM_SYSTEM_DATA.MonitorFlag, sizeof(StructSystemDataType));
+ 281   1          CEepromSaveSystemData();
+ 282   1      }
+ 283          //----------------------------------------------------------------------------------------------------
+ 284          void CEepromSaveOsdUserData(void)
+ 285          {
+ 286   1              FLSaveStruct(_FL_OSD_USER_DATA_PAGE,sizeof(StructOsdUserDataType),&stOsdUserData.OsdHPos);
+ 287   1      }
+ 288          //----------------------------------------------------------------------------------------------------
+ 289          void CEepromLoadOsdUserData(void)
+ 290          {
+ 291   1              bit fRT = FLLoadStruct(_FL_OSD_USER_DATA_PAGE,1,sizeof(StructOsdUserDataType),&stOsdUserData.OsdHPos);
+ 292   1      
+ 293   1              if(fRT == _FAIL)
+ 294   1              {
+ 295   2                      CEepromLoadOsdUserDataDefault();
+ 296   2              }
+ 297   1      }
+ 298          //----------------------------------------------------------------------------------------------------
+ 299          void CEepromLoadOsdUserDataDefault(void)
+ 300          {
+ 301   1          stOsdUserData = tEEPROM_OSDUSER_DATA;
+ 302   1              CEepromSaveOsdUserData();
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 6   
+
+ 303   1      }
+ 304          //----------------------------------------------------------------------------------------------------
+ 305          void CEepromSaveAdcData(void)
+ 306          {
+ 307   1              if(_GET_INPUT_SOURCE() == _SOURCE_VGA)
+ 308   1                      FLSaveStruct(_FL_ADC_DATA_PAGE,sizeof(StructAdcDataType),&stAdcData.AdcGain[0]);
+ 309   1              else
+ 310   1                      FLSaveStruct(_FL_YPBPR_DATA_PAGE,sizeof(StructYPbPrDataType),&stYPbPrData.YPbPrGain[0]);
+ 311   1      }
+ 312          //----------------------------------------------------------------------------------------------------
+ 313          void CEepromLoadAdcData(void)
+ 314          {
+ 315   1              bit fRT = FLLoadStruct(_FL_ADC_DATA_PAGE,1,sizeof(StructAdcDataType),&stAdcData.AdcGain[0]);    
+ 316   1      
+ 317   1              if(fRT == _FAIL)
+ 318   1              {
+ 319   2                      CEepromLoadAdcDataDefault();
+ 320   2              }
+ 321   1      
+ 322   1              fRT = FLLoadStruct(_FL_YPBPR_DATA_PAGE,1,sizeof(StructYPbPrDataType),&stYPbPrData.YPbPrGain[0]);
+ 323   1      
+ 324   1              if(fRT == _FAIL)
+ 325   1              {
+ 326   2                      CEepromLoadYPbPrDataDefault();
+ 327   2              }
+ 328   1              
+ 329   1      
+ 330   1      }
+ 331          //----------------------------------------------------------------------------------------------------
+ 332          void CEepromLoadAdcDataDefault(void)
+ 333          {
+ 334   1              stAdcData = tEEPROM_ADC_DATA;
+ 335   1              FLSaveStruct(_FL_ADC_DATA_PAGE,sizeof(StructAdcDataType),&stAdcData.AdcGain[0]);
+ 336   1      }
+ 337          //----------------------------------------------------------------------------------------------------
+ 338          void CEepromLoadYPbPrDataDefault(void)
+ 339          {
+ 340   1          stYPbPrData = tEEPROM_YPbPr_DATA;
+ 341   1              FLSaveStruct(_FL_YPBPR_DATA_PAGE,sizeof(StructYPbPrDataType),&stYPbPrData.YPbPrGain[0]);
+ 342   1      }
+ 343          //----------------------------------------------------------------------------------------------------
+ 344          void CEepromSaveAudioData(void)
+ 345          {
+ 346   1              FLSaveStruct(_FL_AUDIO_DATA_PAGE,sizeof(StructAudioDataType),&stAudioData.Mode);
+ 347   1      }
+ 348          //----------------------------------------------------------------------------------------------------
+ 349          void CEepromLoadAudioData(void)
+ 350          {
+ 351   1              bit fRT = FLLoadStruct(_FL_AUDIO_DATA_PAGE,1,sizeof(StructAudioDataType),&stAudioData.Mode);
+ 352   1      
+ 353   1              if(fRT == _FAIL)
+ 354   1              {
+ 355   2                      CEepromLoadAudioDataDefault();
+ 356   2              }
+ 357   1      }
+ 358          //----------------------------------------------------------------------------------------------------
+ 359          void CEepromLoadAudioDataDefault(void)
+ 360          {
+ 361   1          stAudioData = tEEPROM_AUDIO_DATA;
+ 362   1              CEepromSaveAudioData(); 
+ 363   1      
+ 364   1      }
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 7   
+
+ 365          //----------------------------------------------------------------------------------------------------
+ 366          
+ 367          void CEepromSaveTvData(void)
+ 368          {
+ 369   1              FLSaveStruct(_FL_TV_DATA_PAGE,sizeof(StructTvDataType), &stTvInfo.CurChn);      
+ 370   1      }
+ 371          //----------------------------------------------------------------------------------------------------
+ 372          void CEepromLoadTvData(void)
+ 373          {
+ 374   1              bit fRT = FLLoadStruct(_FL_TV_DATA_PAGE,1,sizeof(StructTvDataType), &stTvInfo.CurChn);  
+ 375   1      
+ 376   1              if(fRT == _FAIL)
+ 377   1              {
+ 378   2                      CEepromLoadTvDataDefault();
+ 379   2              }
+ 380   1      
+ 381   1      }
+ 382          //----------------------------------------------------------------------------------------------------
+ 383          void CEepromLoadTvDataDefault(void)
+ 384          {
+ 385   1          stTvInfo = tEEPROM_TV_DATA;
+ 386   1          CEepromSaveTvData();
+ 387   1      }
+ 388          //----------------------------------------------------------------------------------------------------
+ 389          
+ 390          
+ 391          
+ 392          
+ 393          
+ 394          
+ 395          
+ 396          void CEepromSaveBriConData(void)
+ 397          {
+ 398   1              BYTE ID = CGetInputSourceNum(_GET_INPUT_SOURCE()) + 1;
+ 399   1      
+ 400   1              //CUartPrintf("Save Con Data:", ID);
+ 401   1              FLRandomPageSaveStruct(_FL_CONBIR_DATA_PAGE_INDEX,ID,sizeof(StructColorProc0DataType),&stConBriData.Brigh
+             -tness);
+ 402   1      }
+ 403          //----------------------------------------------------------------------------------------------------
+ 404          void CEepromLoadBriConData(void)
+ 405          {
+ 406   1              bit fRT;
+ 407   1              BYTE ucPage = g_szRandomSavePage[_FL_CONBIR_DATA_PAGE_INDEX];
+ 408   1              BYTE ID = CGetInputSourceNum(_GET_INPUT_SOURCE()) + 1;
+ 409   1      
+ 410   1              fRT = FLLoadStruct(ucPage,ID,sizeof(StructColorProc0DataType),&stConBriData.Brightness);
+ 411   1      
+ 412   1              if(fRT == _FAIL)
+ 413   1              {
+ 414   2                      CEepromLoadBriConDataDefault();
+ 415   2              }
+ 416   1      
+ 417   1      }
+ 418          //----------------------------------------------------------------------------------------------------
+ 419          void CEepromLoadBriConDataDefault(void)
+ 420          {
+ 421   1              BYTE i;
+ 422   1              
+ 423   1              for(i=0;i<4;i++)
+ 424   1              {
+ 425   2              stConBriData = tEEPROM_COLOR_PROC0_DATA[i];
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 8   
+
+ 426   2              FLRandomPageSaveStruct(_FL_CONBIR_DATA_PAGE_INDEX,i + 1,sizeof(StructColorProc0DataType),&stConBriDat
+             -a.Brightness);
+ 427   2          }
+ 428   1      
+ 429   1          stConBriData = tEEPROM_COLOR_PROC0_DATA[CGetInputSourceNum(_GET_INPUT_SOURCE())];
+ 430   1      }
+ 431          //----------------------------------------------------------------------------------------------------
+ 432          void CEepromSaveHueSatData(void)
+ 433          {
+ 434   1              BYTE ID = CGetInputSourceNum(_GET_INPUT_SOURCE()) + 1;
+ 435   1              FLRandomPageSaveStruct(_FL_HUE_DATA_PAGE_INDEX,ID,sizeof(StructHueSaturationDataType),&stHueSatData.Hue);
+ 436   1      }
+ 437          //----------------------------------------------------------------------------------------------------
+ 438          void CEepromLoadHueSatData(void)
+ 439          {
+ 440   1              bit fRT;
+ 441   1              BYTE ucPage = g_szRandomSavePage[_FL_HUE_DATA_PAGE_INDEX];
+ 442   1              BYTE ID = CGetInputSourceNum(_GET_INPUT_SOURCE()) + 1;
+ 443   1      
+ 444   1              fRT = FLLoadStruct(ucPage,ID,sizeof(StructHueSaturationDataType),&stHueSatData.Hue);
+ 445   1      
+ 446   1              if(fRT == _FAIL)
+ 447   1              {
+ 448   2                      CEepromLoadHueSatDataDefault();
+ 449   2              }
+ 450   1      }
+ 451          //----------------------------------------------------------------------------------------------------
+ 452          void CEepromLoadHueSatDataDefault(void)
+ 453          {
+ 454   1              BYTE i;
+ 455   1              
+ 456   1              for(i=0;i<4;i++)
+ 457   1              {
+ 458   2                      stHueSatData = tEEPROM_HUE_SAT_DATA[i];
+ 459   2                      FLRandomPageSaveStruct(_FL_HUE_DATA_PAGE_INDEX,i + 1,sizeof(StructHueSaturationDataType),&stHueSatData.H
+             -ue);
+ 460   2          }
+ 461   1      
+ 462   1          stHueSatData = tEEPROM_HUE_SAT_DATA[CGetInputSourceNum(_GET_INPUT_SOURCE())];
+ 463   1      
+ 464   1      }
+ 465          //----------------------------------------------------------------------------------------------------
+ 466          void CEepromSaveColorTempData(void)
+ 467          {
+ 468   1              BYTE ID = CGetInputSourceNum(_GET_INPUT_SOURCE()) * 5 + GET_COLOR_TEMP_TYPE() + 1;
+ 469   1              FLRandomPageSaveStruct(_FL_COLORTEMP_DATA_PAGE_INDEX,ID,sizeof(StructColorProc1DataType),&stColorTempData
+             -.ColorTemp[_RED]);
+ 470   1      }
+ 471          //----------------------------------------------------------------------------------------------------
+ 472          void CEepromLoadColorTempData(void)
+ 473          {
+ 474   1              bit fRT;
+ 475   1              BYTE ucPage = g_szRandomSavePage[_FL_COLORTEMP_DATA_PAGE_INDEX];
+ 476   1              BYTE ID = CGetInputSourceNum(_GET_INPUT_SOURCE()) * 5 + GET_COLOR_TEMP_TYPE() + 1;
+ 477   1      
+ 478   1              fRT = FLLoadStruct(ucPage,ID,sizeof(StructColorProc1DataType),&stColorTempData.ColorTemp[_RED]);
+ 479   1      
+ 480   1              if(fRT == _FAIL)
+ 481   1              {
+ 482   2                      CEepromLoadColorTempDataDefault();
+ 483   2              }
+ 484   1      }
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 9   
+
+ 485          //----------------------------------------------------------------------------------------------------
+ 486          void CEepromLoadColorTempDataDefault(void)
+ 487          {
+ 488   1              BYTE i;
+ 489   1              
+ 490   1              for(i=0;i<4 * 5;i++)
+ 491   1              {
+ 492   2                      stColorTempData = tEEPROM_COLORTEMP_DATA[i];
+ 493   2                      FLRandomPageSaveStruct(_FL_COLORTEMP_DATA_PAGE_INDEX,i + 1,sizeof(StructColorProc1DataType),&stColorTemp
+             -Data.ColorTemp[_RED]);
+ 494   2          }
+ 495   1          
+ 496   1          stColorTempData = tEEPROM_COLORTEMP_DATA[CGetInputSourceNum(_GET_INPUT_SOURCE()) * 5 + GET_COLOR_TEMP_
+             -TYPE()];
+ 497   1      }
+ 498          //----------------------------------------------------------------------------------------------------
+ 499          void CEepromSaveModeData(BYTE ucMode)
+ 500          {
+ 501   1              BYTE ID;
+ 502   1          if(GET_MODE_SEARCH_TYPE() == _PRESET_MODE_TYPE)
+ 503   1          {
+ 504   2              ID = ucMode + 1;
+ 505   2          }
+ 506   1          else if(GET_MODE_SEARCH_TYPE() == _USER_MODE_TYPE)
+ 507   1          {
+ 508   2              ID = ucMode + 150;
+ 509   2          }
+ 510   1      
+ 511   1          FLRandomPageSaveStruct(_FL_MODE_DATA_PAGE_INDEX,ID,sizeof(StructModeUserDataType), &stModeUserData.Fir
+             -stAuto);
+ 512   1      
+ 513   1      }
+ 514          //----------------------------------------------------------------------------------------------------
+ 515          void CEepromLoadModeData(BYTE ucMode)
+ 516          {
+ 517   1      
+ 518   1              bit fRT;
+ 519   1              BYTE ucPage = g_szRandomSavePage[_FL_MODE_DATA_PAGE_INDEX];
+ 520   1              BYTE ID ;
+ 521   1      
+ 522   1      
+ 523   1          if(GET_MODE_SEARCH_TYPE() == _PRESET_MODE_TYPE)
+ 524   1          {
+ 525   2              ID = ucMode + 1;
+ 526   2          }
+ 527   1          else if(GET_MODE_SEARCH_TYPE() == _USER_MODE_TYPE)
+ 528   1          {
+ 529   2              ID = ucMode + 150;
+ 530   2          }
+ 531   1      
+ 532   1              fRT = FLLoadStruct(ucPage,ID,sizeof(StructModeUserDataType), &stModeUserData.FirstAuto);
+ 533   1              if(fRT == _FAIL)
+ 534   1              {
+ 535   2                      stModeUserData.FirstAuto    = 0;
+ 536   2                      stModeUserData.HPosition    = stModeInfo.IHStartPos;
+ 537   2                      stModeUserData.VPosition    = stModeInfo.IVStartPos;
+ 538   2                      stModeUserData.Clock        = stModeInfo.IHTotal;
+ 539   2                      stModeUserData.Phase        = 0;
+ 540   2              }       
+ 541   1          
+ 542   1      }
+ 543          //----------------------------------------------------------------------------------------------------
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 10  
+
+ 544          void CEepromInitialModeData(void)
+ 545          {
+ 546   1          BYTE modecnt, modetype;
+ 547   1      
+ 548   1          modetype = GET_MODE_SEARCH_TYPE();
+ 549   1          SET_MODE_SEARCH_TYPE(_PRESET_MODE_TYPE);
+ 550   1      
+ 551   1          for(modecnt=0;modecnt<_MAX_PRESET_MODE;modecnt++)
+ 552   1          {
+ 553   2              stModeUserData.FirstAuto    = 0;
+ 554   2              stModeUserData.HPosition    = tINPUTMODE_PRESET_TABLE[modecnt].IHStartPos;
+ 555   2              stModeUserData.VPosition    = tINPUTMODE_PRESET_TABLE[modecnt].IVStartPos;
+ 556   2              stModeUserData.Clock        = tINPUTMODE_PRESET_TABLE[modecnt].IHTotal;
+ 557   2              stModeUserData.Phase        = 0;
+ 558   2      
+ 559   2              CEepromSaveModeData(modecnt);
+ 560   2          }
+ 561   1      
+ 562   1          SET_MODE_SEARCH_TYPE(modetype);
+ 563   1      }
+ 564          //----------------------------------------------------------------------------------------------------
+ 565          void CEepromSaveCenterModeData(BYTE ucMode)
+ 566          {
+ 567   1              BYTE ID;
+ 568   1          if(GET_MODE_SEARCH_TYPE() == _PRESET_MODE_TYPE)
+ 569   1                      ID = ucMode + 1;                
+ 570   1          else if(GET_MODE_SEARCH_TYPE() == _USER_MODE_TYPE)   
+ 571   1              ID = ucMode + 150;
+ 572   1      
+ 573   1              FLRandomPageSaveStruct(_FL_CENTER_DATA_PAGE_INDEX,ID,sizeof(StructModeUserCenterDataType), (BYTE *)&stMod
+             -eUserCenterData.CenterHPos);
+ 574   1      }
+ 575          //----------------------------------------------------------------------------------------------------
+ 576          void CEepromLoadCenterModeData(BYTE ucMode)
+ 577          {
+ 578   1              bit fRT;
+ 579   1              BYTE ucPage = g_szRandomSavePage[_FL_CENTER_DATA_PAGE_INDEX];
+ 580   1              BYTE ID ;
+ 581   1      
+ 582   1          if(GET_MODE_SEARCH_TYPE() == _PRESET_MODE_TYPE)
+ 583   1          {
+ 584   2              ID = ucMode + 1;
+ 585   2          }
+ 586   1          else if(GET_MODE_SEARCH_TYPE() == _USER_MODE_TYPE)
+ 587   1          {
+ 588   2                      ID = ucMode + 150;
+ 589   2          }
+ 590   1      
+ 591   1              fRT = FLLoadStruct(ucPage,ID,sizeof(StructModeUserCenterDataType), (BYTE *)&stModeUserCenterData.CenterH
+             -Pos);
+ 592   1      
+ 593   1          if(fRT == _FAIL)
+ 594   1          {
+ 595   2              stModeUserCenterData.CenterHPos     = stModeInfo.IHStartPos;
+ 596   2              stModeUserCenterData.CenterVPos     = stModeInfo.IVStartPos;
+ 597   2              stModeUserCenterData.CenterClock    = stModeInfo.IHTotal;
+ 598   2          }
+ 599   1      }
+ 600          //----------------------------------------------------------------------------------------------------
+ 601          void CEepromInitialCenterModeData(void)
+ 602          {
+ 603   1          BYTE modecnt, modetype;
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 11  
+
+ 604   1      
+ 605   1          modetype = GET_MODE_SEARCH_TYPE();
+ 606   1          SET_MODE_SEARCH_TYPE(_PRESET_MODE_TYPE);
+ 607   1      
+ 608   1          for(modecnt=0;modecnt<_MAX_PRESET_MODE;modecnt++)
+ 609   1          {
+ 610   2              stModeUserCenterData.CenterHPos     = tINPUTMODE_PRESET_TABLE[modecnt].IHStartPos;
+ 611   2              stModeUserCenterData.CenterVPos     = tINPUTMODE_PRESET_TABLE[modecnt].IVStartPos;
+ 612   2              stModeUserCenterData.CenterClock    = tINPUTMODE_PRESET_TABLE[modecnt].IHTotal;
+ 613   2              CEepromSaveCenterModeData(modecnt);
+ 614   2          }
+ 615   1      
+ 616   1          SET_MODE_SEARCH_TYPE(modetype);
+ 617   1      }
+ 618          //----------------------------------------------------------------------------------------------------
+ 619          
+ 620          
+ 621          
+ 622          void CEepromSaveUserFIFOModeData(StructModeUserFIFODataType stUserFIFOMode)
+ 623          {
+ 624   1          BYTE ID;
+ 625   1      
+ 626   1          stUserFIFOMode.IHFreq = ((stUserFIFOMode.IVFreq & 0x0f00) << 4) | (stUserFIFOMode.IHFreq & 0x0fff);
+ 627   1          stUserFIFOMode.IVFreq = ((stUserFIFOMode.IVFreq & 0x00ff) << 8);
+ 628   1      
+ 629   1              ID = stSystemData.UserFIFOMode + 1;
+ 630   1          FLRandomPageSaveStruct(_FL_FIFO_DATA_PAGE_INDEX,ID,4, &stUserFIFOMode.ModeNum);
+ 631   1      }
+ 632          //----------------------------------------------------------------------------------------------------
+ 633          void CEepromLoadUserFIFOModeData(BYTE ucNum, BYTE *pArray)
+ 634          {
+ 635   1              bit fRT;
+ 636   1              BYTE i;
+ 637   1              BYTE ucPage = g_szRandomSavePage[_FL_FIFO_DATA_PAGE_INDEX];
+ 638   1              BYTE ID = ucNum + 1;
+ 639   1      
+ 640   1              for(i=0;i<4;i++)
+ 641   1              {
+ 642   2                      fRT = FLLoadStruct(ucPage,ID++,4, pArray);
+ 643   2                      pArray += 4;
+ 644   2              }
+ 645   1      
+ 646   1      }
+ 647          //----------------------------------------------------------------------------------------------------
+ 648          void CEepromInitialUserFIFOModeData(void)
+ 649          {
+ 650   1              // 初始化 就是写 0xFF 写以不用做这个动做
+ 651   1      }
+ 652          //----------------------------------------------------------------------------------------------------
+ 653          void CSaveTVModeData(BYTE ucChannel)
+ 654          {
+ 655   1          BYTE ID = ucChannel + 1;
+ 656   1      
+ 657   1          FLRandomPageSaveStruct(_FL_TVFREQ_PAGE_INDEX,ID,sizeof(StructTvInformationData), &stTVChannelInfo.TYPE
+             -);
+ 658   1      }
+ 659          //----------------------------------------------------------------------------------------------------
+ 660          
+ 661          void CLoadTVModeData(BYTE ucChannel)
+ 662          {
+ 663   1              bit fRT;
+ 664   1              BYTE ucPage = g_szRandomSavePage[_FL_TVFREQ_PAGE_INDEX];
+C51 COMPILER V7.06   FLASH                                                                 04/29/2010 18:06:19 PAGE 12  
+
+ 665   1              BYTE ID = ucChannel + 1;
+ 666   1      
+ 667   1              fRT = FLLoadStruct(ucPage,ID,sizeof(StructTvInformationData), &stTVChannelInfo.TYPE);
+ 668   1      
+ 669   1          if(fRT == _FAIL)
+ 670   1          {
+ 671   2              stTVChannelInfo.TYPE = _NORMAL_TV_TYPE;
+ 672   2              stTVChannelInfo.Freq = _MIN_FREQ;
+ 673   2          }
+ 674   1      
+ 675   1          ucTVType = _GET_CH_COLOR_TYPE();
+ 676   1      }
+ 677          //----------------------------------------------------------------------------------------------------
+ 678          
+ 679          
+ 680          
+ 681          
+ 682          #endif  // End of #if(_MEMORY_LOCATION == _FLASH)
+ 683          
+ 684          
+ 685          
+ 686          
+ 687          
+
+
+MODULE INFORMATION:   STATIC OVERLAYABLE
+   CODE SIZE        =   2624    ----
+   CONSTANT SIZE    =   ----    ----
+   XDATA SIZE       =   ----      63
+   PDATA SIZE       =   ----    ----
+   DATA SIZE        =   ----    ----
+   IDATA SIZE       =   ----    ----
+   BIT SIZE         =   ----      17
+END OF MODULE INFORMATION.
+
+
+C51 COMPILATION COMPLETE.  0 WARNING(S),  0 ERROR(S)
